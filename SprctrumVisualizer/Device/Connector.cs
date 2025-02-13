@@ -19,19 +19,6 @@ namespace SpectrumVisualizer.Device
             }
         }
 
-        public bool Connect(string portName)
-        {
-            try
-            {
-                return _deviceService.Open(portName).GetAwaiter().GetResult();   
-            }
-            catch (Exception ex)
-            {
-                ErrorHandler.Log(ex);
-                return false;
-            }
-        }
-
         public void Disconnect() => _deviceService.Close();
     }
 }

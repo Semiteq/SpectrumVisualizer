@@ -1,6 +1,7 @@
 using Device.ATR.Common.Utils;
 using Device.ATR.Devices;
 using Device.ATR.Model.Spectrometer;
+using SpectrumVisualizer.SpectrumJobs;
 
 namespace SpectrumVisualizer
 {
@@ -141,7 +142,7 @@ namespace SpectrumVisualizer
                         try
                         {
                             _spectrum.Data = await _spectrumAcquirer.AcquireAsync(_spectrumParameter);
-                            _spectrum.Dark = await _spectrumAcquirer.AcquireDarkAsync(_spectrumParameter);
+                            _spectrum.Dark = await _spectrumAcquirer.AcquireAsync(_spectrumParameter, considerDark);
                         }
                         finally
                         {
@@ -192,20 +193,16 @@ namespace SpectrumVisualizer
             if (spectrumToAnalyze == null)
                 return;
 
-            Dictionary<double, double>? spectrumAnalized = null;
+            Dictionary<double, double>? spectrumAnalized;
 
-            await _deviceServiceSemaphore.WaitAsync();
-            try
-            {
-                spectrumAnalized = await _spectrumAnalyzer.ProcessAsync(spectrumToAnalyze, considerDark);
-            }
-            finally
-            {
-                _deviceServiceSemaphore.Release();
-            }
+            spectrumAnalized = await _spectrumAnalyzer.ProcessAsync(spectrumToAnalyze, considerDark);
 
-            SpectrumJobs.SpectrumPainter.Process(spectrumAnalized, plotView);
+            if (spectrumAnalized is { Count: > 0 })
+            {
+                Invoke(() => SpectrumPainter.Process(spectrumAnalized, plotView));
+            }
         }
+
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {

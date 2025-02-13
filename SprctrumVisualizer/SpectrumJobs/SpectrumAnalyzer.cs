@@ -6,7 +6,7 @@ namespace SpectrumVisualizer.SpectrumJobs
     internal class SpectrumAnalyzer
     {
         private readonly DeviceService _deviceService;
-        private SpectrumNormilizer _spectrumNormilizer;
+        private SpectrumNormalizer _spectrumNormilizer;
         private int _dataSize;
         public SpectrumAnalyzer(DeviceService deviceService)
         {
@@ -16,6 +16,12 @@ namespace SpectrumVisualizer.SpectrumJobs
 
         public async Task<Dictionary<double, double>> ProcessAsync(Spectrum spectrum, bool considerDark)
         {
+            if (spectrum?.Data == null || spectrum.Dark == null)
+            {
+                ErrorHandler.Log(new ArgumentNullException(nameof(spectrum)));
+                return new Dictionary<double, double>();
+            }
+
             _dataSize = _deviceService.DeviceInfo.CcdSize;
 
             if (considerDark)
@@ -25,8 +31,9 @@ namespace SpectrumVisualizer.SpectrumJobs
                     spectrum.Data[i] -= spectrum.Dark[i];
                 }
             }
-            // NSR etc goes here
+
             return await _spectrumNormilizer.ProcessAsync(spectrum);
         }
+
     }
 }

@@ -3,7 +3,7 @@ using Device.ATR.Model.Spectrometer;
 
 namespace SpectrumVisualizer.SpectrumJobs
 {
-    internal class SpectrumNormilizer(DeviceService deviceService) : WavelengthCalibrationCoeff
+    internal class SpectrumNormalizer(DeviceService deviceService) : WavelengthCalibrationCoeff
     {
         private readonly DeviceService _deviceService = deviceService;
 

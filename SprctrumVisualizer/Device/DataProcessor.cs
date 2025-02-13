@@ -5,22 +5,33 @@ class DataProcessor : IDisposable
     private volatile bool _hasNewData = false;
     private readonly object _lock = new();
     private readonly CancellationTokenSource _cts = new();
-    private Task? _processingTask; 
+    private Task? _processingTask;
 
     public void OnDataUpdated(Func<Task> processMethod)
     {
         lock (_lock)
         {
-            if (_cts.IsCancellationRequested) return; 
+            if (_cts.IsCancellationRequested) return;
 
             _hasNewData = true;
             if (!_isProcessing)
             {
                 _isProcessing = true;
-                _processingTask = Task.Run(() => ProcessLoop(processMethod, _cts.Token));
+                _processingTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ProcessLoop(processMethod, _cts.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.Log(ex);
+                    }
+                });
             }
         }
     }
+
 
     private async Task ProcessLoop(Func<Task> processMethod, CancellationToken token)
     {
