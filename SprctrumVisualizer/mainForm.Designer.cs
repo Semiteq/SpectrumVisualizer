@@ -45,7 +45,7 @@
             comboBoxCom.Name = "comboBoxCom";
             comboBoxCom.Size = new Size(132, 23);
             comboBoxCom.TabIndex = 0;
-            comboBoxCom.SelectedIndexChanged += ComboBoxCom_SelectedIndexChanged;
+            
             // 
             // numericUpDownIntegration
             // 
@@ -53,7 +53,7 @@
             numericUpDownIntegration.Name = "numericUpDownIntegration";
             numericUpDownIntegration.Size = new Size(41, 23);
             numericUpDownIntegration.TabIndex = 1;
-            numericUpDownIntegration.ValueChanged += numericUpDownIntegration_ValueChanged;
+            
             // 
             // numericUpDownInterval
             // 
@@ -62,7 +62,7 @@
             numericUpDownInterval.Name = "numericUpDownInterval";
             numericUpDownInterval.Size = new Size(41, 23);
             numericUpDownInterval.TabIndex = 2;
-            numericUpDownInterval.ValueChanged += numericUpDownInterval_ValueChanged;
+            
             // 
             // numericUpDownAverage
             // 
@@ -70,7 +70,7 @@
             numericUpDownAverage.Name = "numericUpDownAverage";
             numericUpDownAverage.Size = new Size(40, 23);
             numericUpDownAverage.TabIndex = 3;
-            numericUpDownAverage.ValueChanged += numericUpDownAverage_ValueChanged;
+            
             // 
             // labelIntegration
             // 
@@ -138,7 +138,7 @@
             buttonAcquireDark.TabIndex = 10;
             buttonAcquireDark.Text = "Acquire Dark";
             buttonAcquireDark.UseVisualStyleBackColor = true;
-            buttonAcquireDark.Click += buttonAcquireDark_Click;
+            
             // 
             // buttonResetDark
             // 
@@ -148,7 +148,7 @@
             buttonResetDark.TabIndex = 11;
             buttonResetDark.Text = "Reset Dark";
             buttonResetDark.UseVisualStyleBackColor = true;
-            buttonResetDark.Click += buttonResetDark_Click;
+            
             // 
             // labelComPort
             // 
