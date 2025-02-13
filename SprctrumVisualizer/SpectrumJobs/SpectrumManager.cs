@@ -8,7 +8,9 @@ internal class SpectrumManager
     private readonly SpectrumAnalyzer _spectrumAnalyzer;
     private AcquireParameter _parameters = new();
     private bool _considerDark = false;
+    private bool _readDarkFlag = false;
     private CancellationTokenSource? _cts;
+    private double[]? dark = null;
 
     public SpectrumManager(SpectrumAcquirer acquirer, SpectrumAnalyzer analyzer)
     {
@@ -26,6 +28,7 @@ internal class SpectrumManager
     public void SetConsiderDark(bool considerDark)
     {
         _considerDark = considerDark;
+        _readDarkFlag = considerDark;
     }
 
     public void StartAcquisition(Action<Dictionary<double, double>> updateChart)
@@ -40,11 +43,21 @@ internal class SpectrumManager
                 try
                 {
                     var spectrum = await _spectrumAcquirer.AcquireAsync(_parameters);
-                    var dark = await _spectrumAcquirer.AcquireAsync(_parameters, true);
+
+                    // Если нужно учитывать тёмный спектр и он ещё не записан, то измеряем его
+                    if (_considerDark && _readDarkFlag)
+                    {
+                        dark = await _spectrumAcquirer.AcquireAsync(_parameters, true);
+                        _readDarkFlag = false; // Сбрасываем флаг после первой записи
+                    }
+                    // Если отключаем тёмный спектр, сбрасываем его
+                    else if (!_considerDark)
+                    {
+                        dark = null;
+                    }
 
                     var analyzed = await _spectrumAnalyzer.ProcessAsync(
-                        new Spectrum { Data = spectrum, Dark = dark },
-                        _considerDark
+                        new Spectrum { Data = spectrum, Dark = dark }
                     );
 
                     updateChart(analyzed);
@@ -58,6 +71,7 @@ internal class SpectrumManager
             }
         }, token);
     }
+
 
     public void StopAcquisition()
     {

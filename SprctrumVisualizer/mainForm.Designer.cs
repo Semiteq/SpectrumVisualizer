@@ -33,6 +33,7 @@
             buttonAcquireDark = new Button();
             buttonResetDark = new Button();
             labelComPort = new Label();
+            labelSignalAverage = new Label();
             ((System.ComponentModel.ISupportInitialize)numericUpDownIntegration).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numericUpDownAverage).BeginInit();
@@ -45,7 +46,6 @@
             comboBoxCom.Name = "comboBoxCom";
             comboBoxCom.Size = new Size(132, 23);
             comboBoxCom.TabIndex = 0;
-            
             // 
             // numericUpDownIntegration
             // 
@@ -53,7 +53,6 @@
             numericUpDownIntegration.Name = "numericUpDownIntegration";
             numericUpDownIntegration.Size = new Size(41, 23);
             numericUpDownIntegration.TabIndex = 1;
-            
             // 
             // numericUpDownInterval
             // 
@@ -62,7 +61,6 @@
             numericUpDownInterval.Name = "numericUpDownInterval";
             numericUpDownInterval.Size = new Size(41, 23);
             numericUpDownInterval.TabIndex = 2;
-            
             // 
             // numericUpDownAverage
             // 
@@ -70,7 +68,6 @@
             numericUpDownAverage.Name = "numericUpDownAverage";
             numericUpDownAverage.Size = new Size(40, 23);
             numericUpDownAverage.TabIndex = 3;
-            
             // 
             // labelIntegration
             // 
@@ -138,7 +135,6 @@
             buttonAcquireDark.TabIndex = 10;
             buttonAcquireDark.Text = "Acquire Dark";
             buttonAcquireDark.UseVisualStyleBackColor = true;
-            
             // 
             // buttonResetDark
             // 
@@ -148,7 +144,6 @@
             buttonResetDark.TabIndex = 11;
             buttonResetDark.Text = "Reset Dark";
             buttonResetDark.UseVisualStyleBackColor = true;
-            
             // 
             // labelComPort
             // 
@@ -159,11 +154,22 @@
             labelComPort.TabIndex = 12;
             labelComPort.Text = "COM-port:";
             // 
+            // labelSignalAverage
+            // 
+            labelSignalAverage.AutoSize = true;
+            labelSignalAverage.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 204);
+            labelSignalAverage.Location = new Point(12, 247);
+            labelSignalAverage.Name = "labelSignalAverage";
+            labelSignalAverage.Size = new Size(125, 21);
+            labelSignalAverage.TabIndex = 13;
+            labelSignalAverage.Text = "Average Signal";
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1350, 729);
+            Controls.Add(labelSignalAverage);
             Controls.Add(labelComPort);
             Controls.Add(buttonResetDark);
             Controls.Add(buttonAcquireDark);
@@ -203,5 +209,6 @@
         private Button buttonAcquireDark;
         private Button buttonResetDark;
         private Label labelComPort;
+        private Label labelSignalAverage;
     }
 }

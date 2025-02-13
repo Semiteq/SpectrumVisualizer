@@ -9,7 +9,7 @@ namespace SpectrumVisualizer
     {
         private readonly DeviceManager _deviceManager;
         private readonly SpectrumManager _spectrumManager;
-
+        
         public MainForm()
         {
             InitializeComponent();
@@ -46,6 +46,11 @@ namespace SpectrumVisualizer
                 comboBoxCom.SelectedIndex = 0;
                 await TryConnectAsync();
             }
+
+            // Начальные значения
+            numericUpDownIntegration.Value = 15;
+            numericUpDownInterval.Value = 0;
+            numericUpDownAverage.Value = 1;
         }
 
         private async Task TryConnectAsync()
@@ -58,9 +63,18 @@ namespace SpectrumVisualizer
 
         private void StartSpectrumAcquisition()
         {
+            SpectrumPainter _spectrumPainter;
+            _spectrumPainter = new();
             _spectrumManager.StartAcquisition(spectrum =>
             {
-                Invoke(() => SpectrumPainter.Process(spectrum, plotView));
+                Invoke(() =>
+                {
+
+                    _spectrumPainter.UpdateData(spectrum);
+
+                    plotView.Model = _spectrumPainter.GetPlotModel();
+                    labelSignalAverage.Text = $"Average: {Math.Round(_spectrumPainter.CalculateAverage(),2).ToString()}";
+                });
             });
         }
 
@@ -76,6 +90,4 @@ namespace SpectrumVisualizer
             base.OnFormClosing(e);
         }
     }
-
-
 }

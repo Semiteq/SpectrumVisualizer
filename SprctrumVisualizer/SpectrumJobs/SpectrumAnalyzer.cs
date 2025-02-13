@@ -14,9 +14,9 @@ namespace SpectrumVisualizer.SpectrumJobs
             _spectrumNormilizer = new(_deviceService);
         }
 
-        public async Task<Dictionary<double, double>> ProcessAsync(Spectrum spectrum, bool considerDark)
+        public async Task<Dictionary<double, double>> ProcessAsync(Spectrum spectrum)
         {
-            if (spectrum?.Data == null || spectrum.Dark == null)
+            if (spectrum?.Data == null)
             {
                 ErrorHandler.Log(new ArgumentNullException(nameof(spectrum)));
                 return new Dictionary<double, double>();
@@ -24,7 +24,7 @@ namespace SpectrumVisualizer.SpectrumJobs
 
             _dataSize = _deviceService.DeviceInfo.CcdSize;
 
-            if (considerDark)
+            if (spectrum.Dark != null)
             {
                 for (int i = 0; i < _dataSize; i++)
                 {

@@ -17,13 +17,15 @@ namespace SpectrumVisualizer.SpectrumJobs
         {
             try
             {
+                // Writing first in case of communication error
+                _dataSize = _deviceService.DeviceInfo.CcdSize;
+
                 return isDark
                     ? (await _deviceService.AcquireDark(parameter)).Data
                     : (await _deviceService.Acquire(parameter)).Data;
             }
             catch (Exception ex)
             {
-                _dataSize = _deviceService.DeviceInfo.CcdSize;
                 ErrorHandler.Log(ex);
                 return new double[_dataSize];
             }
