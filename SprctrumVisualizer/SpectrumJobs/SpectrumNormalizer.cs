@@ -1,27 +1,26 @@
-﻿using Device.ATR.Devices;
-using Device.ATR.Model.Spectrometer;
+﻿using Device.ATR.Model.Spectrometer;
+using SpectrumVisualizer.Device;
 
 namespace SpectrumVisualizer.SpectrumJobs
 {
-    internal class SpectrumNormalizer(DeviceService deviceService) : WavelengthCalibrationCoeff
+    /// <summary>
+    /// Uses polinom to adjust pixel data to wavelength range.
+    /// </summary>
+    internal class SpectrumNormalizer: WavelengthCalibrationCoeff
     {
-        private readonly DeviceService _deviceService = deviceService;
-
-        public async Task<Dictionary<double, double>> ProcessAsync(Spectrum spectrum)
+        public Dictionary<double, double> Process(Spectrum spectrum)
         {
-            var coeffResult = await _deviceService.GetWavelengthCalibrationCoeff();
-            Coeff = coeffResult.Coeff;
-            int dataSize = _deviceService.DeviceInfo.CcdSize;
+            Coeff = DeviceGeneralInfo.Coeff;
 
             // Calibration of the spectrum by the polinoimial coefficients
-            double[] wavelengths = CalcWavelength(dataSize);
+            double[] wavelengths = CalcWavelength(DeviceGeneralInfo.DataSize);
 
             // Normalized spectrum absciss data
             double[] intensivities = spectrum.Data;
 
-            var result = new Dictionary<double, double>(dataSize);
+            var result = new Dictionary<double, double>(DeviceGeneralInfo.DataSize);
 
-            for (int i = 0; i < dataSize; i++)
+            for (int i = 0; i < DeviceGeneralInfo.DataSize; i++)
             {
                 result[wavelengths[i]] = intensivities[i];
             }

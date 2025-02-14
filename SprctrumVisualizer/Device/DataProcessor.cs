@@ -1,81 +1,99 @@
-﻿namespace SpectrumVisualizer.Device;
-class DataProcessor : IDisposable
+﻿namespace SpectrumVisualizer.Device
 {
-    private volatile bool _isProcessing = false;
-    private volatile bool _hasNewData = false;
-    private readonly object _lock = new();
-    private readonly CancellationTokenSource _cts = new();
-    private Task? _processingTask;
-
-    public void OnDataUpdated(Func<Task> processMethod)
+    /// <summary>
+    /// Processes data updates asynchronously, ensuring that processing happens only when new data is available
+    /// and avoiding overlapping processing tasks.
+    /// </summary>
+    class DataProcessor : IDisposable
     {
-        lock (_lock)
-        {
-            if (_cts.IsCancellationRequested) return;
+        private volatile bool _isProcessing = false;
+        private volatile bool _hasNewData = false;  
+        private readonly object _lock = new();      
+        private readonly CancellationTokenSource _cts = new();
+        private Task? _processingTask;
 
-            _hasNewData = true;
-            if (!_isProcessing)
+        /// <summary>
+        /// Called when new data is available. Starts or resumes the processing loop if necessary.
+        /// </summary>
+        /// <param name="processMethod">The asynchronous method to process the data.</param>
+        public void OnDataUpdated(Func<Task> processMethod)
+        {
+            lock (_lock) // Lock to ensure thread-safe operations on state variables.
             {
-                _isProcessing = true;
-                _processingTask = Task.Run(async () =>
+                if (_cts.IsCancellationRequested) return;
+
+                _hasNewData = true; // Indicate that new data is available.
+                if (!_isProcessing) // Start processing only if it's not already running.
                 {
-                    try
+                    _isProcessing = true; 
+                    _processingTask = Task.Run(async () => // Start a new task to run the processing loop.
                     {
-                        await ProcessLoop(processMethod, _cts.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorHandler.Log(ex);
-                    }
-                });
+                        try
+                        {
+                            await ProcessLoop(processMethod, _cts.Token); 
+                        }
+                        catch (Exception ex)
+                        {
+                            ErrorHandler.Log(ex);
+                        }
+                    });
+                }
             }
         }
-    }
 
 
-    private async Task ProcessLoop(Func<Task> processMethod, CancellationToken token)
-    {
-        try
+        /// <summary>
+        /// The main processing loop that executes the data processing method while new data is available.
+        /// </summary>
+        /// <param name="processMethod">The asynchronous method to process the data.</param>
+        /// <param name="token">Cancellation token to stop the processing loop.</param>
+        private async Task ProcessLoop(Func<Task> processMethod, CancellationToken token)
         {
-            do
+            try
             {
-                _hasNewData = false;
-                await processMethod();
+                do
+                {
+                    _hasNewData = false;
+                    await processMethod();
 
-                if (token.IsCancellationRequested)
-                    break;
+                    if (token.IsCancellationRequested)
+                        break; 
+                }
+                while (_hasNewData); // Continue processing as long as new data is available.
             }
-            while (_hasNewData);
-        }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("Processing cancelled.");
-        }
-        finally
-        {
-            lock (_lock)
+            catch (OperationCanceledException)
             {
-                _isProcessing = false;
+                // Ignore error
             }
-        }
-    }
-
-    public void Dispose()
-    {
-        try 
-        {
-            _cts.Cancel(); 
-
-            if (_processingTask != null)
+            finally
             {
-                 _processingTask.ConfigureAwait(false).GetAwaiter().GetResult();
+                lock (_lock)
+                {
+                    _isProcessing = false; // Reset the processing flag when loop finishes or is cancelled.
+                }
             }
-
-            _cts.Dispose();
         }
-        catch (ObjectDisposedException) 
+
+        /// <summary>
+        /// Disposes of the DataProcessor, cancelling any ongoing processing and releasing resources.
+        /// </summary>
+        public void Dispose()
         {
-            // Игнорируем ошибку при утилизации ресурсов
+            try
+            {
+                _cts.Cancel(); // Request cancellation of the processing task.
+
+                if (_processingTask != null)
+                {
+                    _processingTask.ConfigureAwait(false).GetAwaiter().GetResult(); // Wait for the processing task to complete.
+                }
+
+                _cts.Dispose(); // Dispose of the cancellation token source.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore error during disposal if resources are already disposed
+            }
         }
     }
 }
