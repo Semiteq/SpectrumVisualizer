@@ -33,12 +33,20 @@ namespace SpectrumVisualizer.SpectrumJobs
             }
 
             double[]? dark = spectrum.Dark;
-            double factor = isInverse ? -1.0 : 1.0;
+            var maxValue = double.MinValue;
 
-            for (int i = 0; i < DeviceGeneralInfo.DataSize; i++)
+            // Calculates max value after dark substraction
+            for (var i = 0; i < DeviceGeneralInfo.DataSize; i++)
             {
-                double value = data[i] - (dark?[i] ?? 0); // Substract dark if needed
-                data[i] = Math.Max(value, 0) * factor; // Appling inversion and removing negative numbers
+                var value = data[i] - (dark?[i] ?? 0);
+                maxValue = Math.Max(maxValue, value);
+            }
+
+            // Applies inverse and shifts the spectrum
+            for (var i = 0; i < DeviceGeneralInfo.DataSize; i++)
+            {
+                var value = data[i] - (dark?[i] ?? 0);
+                data[i] = isInverse ? -value + maxValue : Math.Max(value, 0);
             }
 
             return _spectrumNormilizer.Process(spectrum);
