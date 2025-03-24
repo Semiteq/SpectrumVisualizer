@@ -47,6 +47,7 @@ namespace SpectrumVisualizer
             }
         }
 
+
         /// <summary>
         /// Asynchronously disconnects from the currently connected device.
         /// </summary>
