@@ -92,29 +92,46 @@ namespace SpectrumVisualizer.Tests.Uart
         [TestMethod]
         public void StartAcquisition_ProcessesSpectrumData_Correctly()
         {
+            // Arrange
             var fakeAcquirer = new FakeUartSpectrumAcquirer();
             var acquirerWrapper = new FakeAcquirerWrapper(fakeAcquirer);
             var manager = new SpectrumManager(acquirerWrapper);
 
             Dictionary<double, double>? receivedData = null;
+            double? receivedAverage = null;
+            double? receivedSnr = null;
+            double? receivedQuality = null;
+
             manager.StartAcquisition(
                 updateUI: dict => receivedData = dict,
-                updateSpectrumInfo: (average, snr, quality) =>
+                updateSpectrumInfo: (avg, snr, quality) =>
                 {
-                    /* Ignored for this test */
+                    receivedAverage = avg;
+                    receivedSnr = snr;
+                    receivedQuality = quality;
                 }
             );
 
+            // Act
             var testMessage = GenerateTestMessage();
             fakeAcquirer.SimulateMessage(testMessage);
             Task.Delay(100).Wait();
 
-            var expectedCount = MessageStruct1.SpectrumLength / 2;
+            // Assert
             Assert.IsNotNull(receivedData);
-            Assert.AreEqual(expectedCount, receivedData!.Count);
 
-            Assert.AreEqual(1.0, receivedData[0]);
-            Assert.AreEqual((double)expectedCount, receivedData[expectedCount - 1]);
+            var expectedLength = MessageStruct1.SpectrumLength / 2;
+            Assert.AreEqual(expectedLength, receivedData!.Count);
+
+            // Check first and last wavelength-intensity pairs
+            var firstPair = receivedData.First();
+            var lastPair = receivedData.Last();
+
+            Assert.AreEqual(SpectrumCalc.WaveLength(0, 1), firstPair.Key);
+            Assert.AreEqual(1.0, firstPair.Value);
+
+            Assert.AreEqual(SpectrumCalc.WaveLength(expectedLength - 1, 1), lastPair.Key);
+            Assert.AreEqual(expectedLength, lastPair.Value);
 
             manager.StopAcquisition();
         }
@@ -156,8 +173,8 @@ namespace SpectrumVisualizer.Tests.Uart
             Assert.IsNotNull(receivedDataNormal);
             Assert.IsNotNull(receivedDataInverted);
 
-            var normalFirst = receivedDataNormal![0];
-            var invertedFirst = receivedDataInverted![0];
+            var normalFirst = receivedDataNormal!.FirstOrDefault().Value;
+            var invertedFirst = receivedDataInverted!.FirstOrDefault().Value;
 
             var actualMax = receivedDataNormal.Values.Max();
             var expectedNormalFirst = receivedDataNormal.Values.Min();

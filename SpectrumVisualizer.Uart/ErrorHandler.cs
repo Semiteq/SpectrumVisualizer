@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace SpectrumVisualizer
+namespace SpectrumVisualizer.Uart
 {
     /// <summary>
     /// Handles and logs errors within the application. Provides a centralized point for error reporting,
@@ -16,6 +16,23 @@ namespace SpectrumVisualizer
         /// </summary>
         /// <param name="message">The exception to log.</param>
         public static void Log(Exception message)
+        {
+            Debug.WriteLine(message);
+            if (LoggingBox != null)
+            {
+                LoggingBox.Invoke((MethodInvoker)(() => // Invoke action on UI thread to update ListBox safely.
+                {
+                    if (LoggingBox.Items.Count >= MaxLogCount)
+                    {
+                        LoggingBox.Items.RemoveAt(0);
+                    }
+                    LoggingBox.Items.Add(message);
+                    LoggingBox.TopIndex = LoggingBox.Items.Count - 1; // Scroll to the bottom to show the latest message.
+                }));
+            }
+        }
+
+        public static void Log(string message)
         {
             Debug.WriteLine(message);
             if (LoggingBox != null)

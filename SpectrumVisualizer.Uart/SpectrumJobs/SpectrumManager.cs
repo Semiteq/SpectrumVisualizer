@@ -43,9 +43,13 @@
                 }
 
                 var dict = new Dictionary<double, double>();
+
+                // Clarifing spectrometer type depending on spectrum length 1 for 2048, 2 for 512
+                int SpectrumeterType = data.Spectrum.Length == 2048 ? 1 : 2;
+
                 for (var i = 0; i < data.Spectrum.Length; i++)
                 {
-                    dict.Add(i, data.Spectrum[i]);
+                    dict.Add(SpectrumCalc.WaveLength(i, SpectrumeterType), data.Spectrum[i]);
                 }
 
                 updateUI(dict);

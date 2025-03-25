@@ -45,20 +45,20 @@
             // comboBoxCom
             // 
             comboBoxCom.FormattingEnabled = true;
-            comboBoxCom.Location = new Point(9, 62);
-            comboBoxCom.Margin = new Padding(4, 5, 4, 5);
+            comboBoxCom.Location = new Point(7, 50);
+            comboBoxCom.Margin = new Padding(3, 4, 3, 4);
             comboBoxCom.Name = "comboBoxCom";
-            comboBoxCom.Size = new Size(187, 33);
+            comboBoxCom.Size = new Size(150, 28);
             comboBoxCom.TabIndex = 0;
             // 
             // plotView
             // 
             plotView.BackColor = SystemColors.ControlLightLight;
-            plotView.Location = new Point(230, 20);
-            plotView.Margin = new Padding(4, 5, 4, 5);
+            plotView.Location = new Point(184, 16);
+            plotView.Margin = new Padding(3, 4, 3, 4);
             plotView.Name = "plotView";
             plotView.PanCursor = Cursors.Hand;
-            plotView.Size = new Size(1681, 1033);
+            plotView.Size = new Size(1200, 800);
             plotView.TabIndex = 7;
             plotView.Text = "plotView";
             plotView.ZoomHorizontalCursor = Cursors.SizeWE;
@@ -69,29 +69,27 @@
             // 
             loggingBox.FormattingEnabled = true;
             loggingBox.HorizontalScrollbar = true;
-            loggingBox.Location = new Point(9, 1063);
-            loggingBox.Margin = new Padding(4, 5, 4, 5);
+            loggingBox.Location = new Point(7, 824);
+            loggingBox.Margin = new Padding(3, 4, 3, 4);
             loggingBox.Name = "loggingBox";
-            loggingBox.Size = new Size(1901, 129);
+            loggingBox.Size = new Size(1377, 104);
             loggingBox.TabIndex = 8;
             // 
             // labelLog
             // 
             labelLog.AutoSize = true;
-            labelLog.Location = new Point(9, 1028);
-            labelLog.Margin = new Padding(4, 0, 4, 0);
+            labelLog.Location = new Point(7, 796);
             labelLog.Name = "labelLog";
-            labelLog.Size = new Size(54, 25);
+            labelLog.Size = new Size(43, 20);
             labelLog.TabIndex = 9;
             labelLog.Text = "Logs:";
             // 
             // labelComPort
             // 
             labelComPort.AutoSize = true;
-            labelComPort.Location = new Point(9, 32);
-            labelComPort.Margin = new Padding(4, 0, 4, 0);
+            labelComPort.Location = new Point(7, 26);
             labelComPort.Name = "labelComPort";
-            labelComPort.Size = new Size(98, 25);
+            labelComPort.Size = new Size(79, 20);
             labelComPort.TabIndex = 12;
             labelComPort.Text = "COM-port:";
             // 
@@ -99,19 +97,18 @@
             // 
             labelSignalAverage.AutoSize = true;
             labelSignalAverage.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 204);
-            labelSignalAverage.Location = new Point(9, 32);
-            labelSignalAverage.Margin = new Padding(4, 0, 4, 0);
+            labelSignalAverage.Location = new Point(7, 26);
             labelSignalAverage.Name = "labelSignalAverage";
-            labelSignalAverage.Size = new Size(140, 25);
+            labelSignalAverage.Size = new Size(113, 20);
             labelSignalAverage.TabIndex = 13;
             labelSignalAverage.Text = "Average Signal";
             // 
             // buttonClearLog
             // 
-            buttonClearLog.Location = new Point(114, 1022);
-            buttonClearLog.Margin = new Padding(4, 5, 4, 5);
+            buttonClearLog.Location = new Point(91, 786);
+            buttonClearLog.Margin = new Padding(3, 4, 3, 4);
             buttonClearLog.Name = "buttonClearLog";
-            buttonClearLog.Size = new Size(107, 38);
+            buttonClearLog.Size = new Size(86, 30);
             buttonClearLog.TabIndex = 14;
             buttonClearLog.Text = "Clear log";
             buttonClearLog.UseVisualStyleBackColor = true;
@@ -121,11 +118,11 @@
             groupBoxSignalAnalize.Controls.Add(labelSNR);
             groupBoxSignalAnalize.Controls.Add(labelQFactor);
             groupBoxSignalAnalize.Controls.Add(labelSignalAverage);
-            groupBoxSignalAnalize.Location = new Point(9, 137);
-            groupBoxSignalAnalize.Margin = new Padding(4, 5, 4, 5);
+            groupBoxSignalAnalize.Location = new Point(7, 110);
+            groupBoxSignalAnalize.Margin = new Padding(3, 4, 3, 4);
             groupBoxSignalAnalize.Name = "groupBoxSignalAnalize";
-            groupBoxSignalAnalize.Padding = new Padding(4, 5, 4, 5);
-            groupBoxSignalAnalize.Size = new Size(213, 152);
+            groupBoxSignalAnalize.Padding = new Padding(3, 4, 3, 4);
+            groupBoxSignalAnalize.Size = new Size(170, 122);
             groupBoxSignalAnalize.TabIndex = 17;
             groupBoxSignalAnalize.TabStop = false;
             groupBoxSignalAnalize.Text = "Signal Analize";
@@ -134,10 +131,9 @@
             // 
             labelSNR.AutoSize = true;
             labelSNR.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 204);
-            labelSNR.Location = new Point(9, 75);
-            labelSNR.Margin = new Padding(4, 0, 4, 0);
+            labelSNR.Location = new Point(7, 60);
             labelSNR.Name = "labelSNR";
-            labelSNR.Size = new Size(48, 25);
+            labelSNR.Size = new Size(39, 20);
             labelSNR.TabIndex = 17;
             labelSNR.Text = "SNR";
             // 
@@ -145,10 +141,9 @@
             // 
             labelQFactor.AutoSize = true;
             labelQFactor.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 204);
-            labelQFactor.Location = new Point(9, 117);
-            labelQFactor.Margin = new Padding(4, 0, 4, 0);
+            labelQFactor.Location = new Point(7, 94);
             labelQFactor.Name = "labelQFactor";
-            labelQFactor.Size = new Size(84, 25);
+            labelQFactor.Size = new Size(68, 20);
             labelQFactor.TabIndex = 16;
             labelQFactor.Text = "Q-factor";
             // 
@@ -158,31 +153,31 @@
             groupBoxPlotSettings.Controls.Add(buttonResetScale);
             groupBoxPlotSettings.Controls.Add(checkBoxLogScale);
             groupBoxPlotSettings.Controls.Add(checkBoxInvertData);
-            groupBoxPlotSettings.Location = new Point(9, 298);
-            groupBoxPlotSettings.Margin = new Padding(4, 5, 4, 5);
+            groupBoxPlotSettings.Location = new Point(7, 238);
+            groupBoxPlotSettings.Margin = new Padding(3, 4, 3, 4);
             groupBoxPlotSettings.Name = "groupBoxPlotSettings";
-            groupBoxPlotSettings.Padding = new Padding(4, 5, 4, 5);
-            groupBoxPlotSettings.Size = new Size(213, 207);
+            groupBoxPlotSettings.Padding = new Padding(3, 4, 3, 4);
+            groupBoxPlotSettings.Size = new Size(170, 166);
             groupBoxPlotSettings.TabIndex = 18;
             groupBoxPlotSettings.TabStop = false;
             groupBoxPlotSettings.Text = "Plot Settings";
             // 
             // buttonStickToZero
             // 
-            buttonStickToZero.Location = new Point(9, 163);
-            buttonStickToZero.Margin = new Padding(4, 5, 4, 5);
+            buttonStickToZero.Location = new Point(7, 130);
+            buttonStickToZero.Margin = new Padding(3, 4, 3, 4);
             buttonStickToZero.Name = "buttonStickToZero";
-            buttonStickToZero.Size = new Size(119, 38);
+            buttonStickToZero.Size = new Size(104, 30);
             buttonStickToZero.TabIndex = 3;
             buttonStickToZero.Text = "Stick to zero";
             buttonStickToZero.UseVisualStyleBackColor = true;
             // 
             // buttonResetScale
             // 
-            buttonResetScale.Location = new Point(9, 117);
-            buttonResetScale.Margin = new Padding(4, 5, 4, 5);
+            buttonResetScale.Location = new Point(7, 94);
+            buttonResetScale.Margin = new Padding(3, 4, 3, 4);
             buttonResetScale.Name = "buttonResetScale";
-            buttonResetScale.Size = new Size(119, 38);
+            buttonResetScale.Size = new Size(104, 30);
             buttonResetScale.TabIndex = 2;
             buttonResetScale.Text = "Reset scale";
             buttonResetScale.UseVisualStyleBackColor = true;
@@ -190,10 +185,10 @@
             // checkBoxLogScale
             // 
             checkBoxLogScale.AutoSize = true;
-            checkBoxLogScale.Location = new Point(9, 78);
-            checkBoxLogScale.Margin = new Padding(4, 5, 4, 5);
+            checkBoxLogScale.Location = new Point(7, 62);
+            checkBoxLogScale.Margin = new Padding(3, 4, 3, 4);
             checkBoxLogScale.Name = "checkBoxLogScale";
-            checkBoxLogScale.Size = new Size(113, 29);
+            checkBoxLogScale.Size = new Size(95, 24);
             checkBoxLogScale.TabIndex = 1;
             checkBoxLogScale.Text = "Log Scale";
             checkBoxLogScale.UseVisualStyleBackColor = true;
@@ -201,10 +196,10 @@
             // checkBoxInvertData
             // 
             checkBoxInvertData.AutoSize = true;
-            checkBoxInvertData.Location = new Point(9, 37);
-            checkBoxInvertData.Margin = new Padding(4, 5, 4, 5);
+            checkBoxInvertData.Location = new Point(7, 30);
+            checkBoxInvertData.Margin = new Padding(3, 4, 3, 4);
             checkBoxInvertData.Name = "checkBoxInvertData";
-            checkBoxInvertData.Size = new Size(125, 29);
+            checkBoxInvertData.Size = new Size(104, 24);
             checkBoxInvertData.TabIndex = 0;
             checkBoxInvertData.Text = "Invert Data";
             checkBoxInvertData.UseVisualStyleBackColor = true;
@@ -213,20 +208,20 @@
             // 
             groupBoxDeviceInfo.Controls.Add(comboBoxCom);
             groupBoxDeviceInfo.Controls.Add(labelComPort);
-            groupBoxDeviceInfo.Location = new Point(9, 20);
-            groupBoxDeviceInfo.Margin = new Padding(4, 5, 4, 5);
+            groupBoxDeviceInfo.Location = new Point(7, 16);
+            groupBoxDeviceInfo.Margin = new Padding(3, 4, 3, 4);
             groupBoxDeviceInfo.Name = "groupBoxDeviceInfo";
-            groupBoxDeviceInfo.Padding = new Padding(4, 5, 4, 5);
-            groupBoxDeviceInfo.Size = new Size(213, 107);
+            groupBoxDeviceInfo.Padding = new Padding(3, 4, 3, 4);
+            groupBoxDeviceInfo.Size = new Size(170, 86);
             groupBoxDeviceInfo.TabIndex = 19;
             groupBoxDeviceInfo.TabStop = false;
             groupBoxDeviceInfo.Text = "Current Device Info";
             // 
             // MainForm
             // 
-            AutoScaleDimensions = new SizeF(10F, 25F);
+            AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1929, 1215);
+            ClientSize = new Size(1392, 938);
             Controls.Add(groupBoxDeviceInfo);
             Controls.Add(groupBoxPlotSettings);
             Controls.Add(groupBoxSignalAnalize);
@@ -236,7 +231,7 @@
             Controls.Add(plotView);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Icon = (Icon)resources.GetObject("$this.Icon");
-            Margin = new Padding(4, 5, 4, 5);
+            Margin = new Padding(3, 4, 3, 4);
             MaximizeBox = false;
             Name = "MainForm";
             Text = "Spectrum Visualizer";

@@ -85,11 +85,22 @@ namespace SpectrumVisualizer.Tests.Uart
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
-        public void ProcessMessage_InvalidLength_ThrowsArgumentException()
+        public void ProcessMessage_InvalidLength_ReturnsEmptyDataStruct()
         {
-            var invalidMessage = new byte[MessageStruct1.TotalMessageLength - 1];
-            _parser.ProcessMessage(invalidMessage);
+            // Test too short message
+            var tooShortMessage = new byte[MessageStruct1.TotalMessageLength - 1];
+            var tooShortResult = _parser.ProcessMessage(tooShortMessage);
+            Assert.AreEqual(0, tooShortResult.Spectrum.Length);
+
+            // Test message length between valid lengths
+            var invalidLengthMessage = new byte[MessageStruct1.TotalMessageLength + 1];
+            var invalidLengthResult = _parser.ProcessMessage(invalidLengthMessage);
+            Assert.AreEqual(0, invalidLengthResult.Spectrum.Length);
+
+            // Test too long message
+            var tooLongMessage = new byte[MessageStruct2.TotalMessageLength + 1];
+            var tooLongResult = _parser.ProcessMessage(tooLongMessage);
+            Assert.AreEqual(0, tooLongResult.Spectrum.Length);
         }
 
         [TestMethod]
@@ -97,6 +108,35 @@ namespace SpectrumVisualizer.Tests.Uart
         public void ProcessMessage_NullMessage_ThrowsArgumentNullException()
         {
             _parser.ProcessMessage(null);
+        }
+
+        [TestMethod]
+        public void ProcessMessage_InvalidLength_ReturnsEmptyDataStructAndLogs()
+        {
+            // Test various invalid message lengths
+            int[] invalidLengths = new[]
+            {
+                0,  // Empty message
+                MessageStruct1.TotalMessageLength - 1,  // Too short for Type 1
+                MessageStruct1.TotalMessageLength + 1,  // Between Type 1 and 2
+                MessageStruct2.TotalMessageLength + 1   // Too long
+            };
+
+            foreach (var length in invalidLengths)
+            {
+                // Arrange
+                var invalidMessage = new byte[length];
+
+                // Act
+                var result = _parser.ProcessMessage(invalidMessage);
+
+                // Assert
+                Assert.IsNotNull(result);
+                Assert.AreEqual(0, result.Spectrum.Length);
+                Assert.AreEqual(0, result.Average);
+                Assert.AreEqual(0, result.Snr);
+                Assert.AreEqual(0, result.Quality);
+            }
         }
     }
 }

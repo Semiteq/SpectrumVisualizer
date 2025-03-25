@@ -65,7 +65,8 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                     break;
 
                 default:
-                    throw new ArgumentException("Unsupported message length");
+                    ErrorHandler.Log("Unsupported message length");
+                    return new DataStruct(0);
             }
             return data;
         }

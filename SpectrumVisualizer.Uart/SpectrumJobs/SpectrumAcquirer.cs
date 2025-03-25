@@ -92,7 +92,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         /// <summary>
         /// Processes the accumulated buffer to extract complete messages.
         /// </summary>
-        private void ProcessBuffer()
+        protected virtual void ProcessBuffer()
         {
             byte[] messageBytes;
             DataStruct dataStruct;
@@ -106,12 +106,17 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                     dataStruct = _parser.ProcessMessage(messageBytes);
                     SpectrumReceived?.Invoke(dataStruct);
                     break;
+
                 case MessageStruct2.TotalMessageLength:
-                    messageBytes = _buffer.GetRange(0, MessageStruct1.TotalMessageLength).ToArray();
-                    _buffer.RemoveRange(0, MessageStruct1.TotalMessageLength);
+                    messageBytes = _buffer.GetRange(0, MessageStruct2.TotalMessageLength).ToArray();
+                    _buffer.RemoveRange(0, MessageStruct2.TotalMessageLength);
 
                     dataStruct = _parser.ProcessMessage(messageBytes);
                     SpectrumReceived?.Invoke(dataStruct);
+                    break;
+
+                default:
+                    ErrorHandler.Log("Unsupported message length");
                     break;
             }
         }
