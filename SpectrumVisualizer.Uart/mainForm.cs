@@ -72,17 +72,27 @@ namespace SpectrumVisualizer.Uart
         private void StartSpectrumAcquisition()
         {
             _spectrumPainter = new SpectrumPainter();
-
             _spectrumManager = new SpectrumManager(_deviceManager.Acquirer!);
 
-            _spectrumManager.StartAcquisition(spectrum =>
-            {
-                Invoke(() =>
+            _spectrumManager.StartAcquisition(
+                spectrum =>
                 {
-                    _spectrumPainter.UpdateData(spectrum);
-                    plotView.Model = _spectrumPainter.GetPlotModel();
-                });
-            });
+                    Invoke((Action)(() =>
+                    {
+                        _spectrumPainter.UpdateData(spectrum);
+                        plotView.Model = _spectrumPainter.GetPlotModel();
+                    }));
+                },
+                (average, snr, quality) =>
+                {
+                    Invoke((Action)(() =>
+                    {
+                        labelSignalAverage.Text = $"Average: {average:F2}";
+                        labelSNR.Text = $"SNR: {snr:F2}";
+                        labelQFactor.Text = $"Quality: {quality:F2}";
+                    }));
+                }
+            );
         }
 
         /// <summary>

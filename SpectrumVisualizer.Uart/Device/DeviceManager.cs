@@ -10,10 +10,10 @@ namespace SpectrumVisualizer.Uart.Device
     /// </summary>
     internal class DeviceManager
     {
-        private UartSpectrumAcquirer? _acquirer;
+        private SpectrumAcquirer? _acquirer;
         public bool IsConnected { get; private set; } = false;
         // Expose the acquirer for use in SpectrumManager.
-        public UartSpectrumAcquirer? Acquirer => _acquirer;
+        public SpectrumAcquirer? Acquirer => _acquirer;
 
         /// <summary>
         /// Connects to the device via the specified COM port.
@@ -23,7 +23,7 @@ namespace SpectrumVisualizer.Uart.Device
             try
             {
                 // Fixed baud rate 115200, using UartSpectrumParser
-                _acquirer = new UartSpectrumAcquirer(portName, 115200, new UartSpectrumParser());
+                _acquirer = new SpectrumAcquirer(portName, 115200, new SpectrumParser());
                 _acquirer.Start();
                 IsConnected = true;
                 return true;

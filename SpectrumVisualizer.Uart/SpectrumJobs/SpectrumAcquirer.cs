@@ -1,6 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.IO.Ports;
+using SpectrumVisualizer.Uart.Message;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
 {
@@ -9,16 +8,16 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
     /// Accumulates received bytes until a complete message (of fixed length) is available,
     /// then uses ISpectrumParser to extract and combine the spectrum data.
     /// </summary>
-    public class UartSpectrumAcquirer : IDisposable
+    public class SpectrumAcquirer : IDisposable
     {
         private readonly SerialPort _serialPort;
         private readonly ISpectrumParser _parser;
         private readonly List<byte> _buffer = new();
 
-        // Event raised when a complete combined spectrum is available.
-        public virtual event Action<ushort[]>? SpectrumReceived;
+        // Event raised when a complete spectrum is available.
+        public virtual event Action<DataStruct>? SpectrumReceived;
 
-        public UartSpectrumAcquirer(string portName, int baudRate, ISpectrumParser parser)
+        public SpectrumAcquirer(string portName, int baudRate, ISpectrumParser parser)
         {
             _parser = parser;
             _serialPort = new SerialPort(portName, baudRate)
@@ -95,14 +94,25 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         /// </summary>
         private void ProcessBuffer()
         {
-            while (_buffer.Count >= UartMessageStruct.TotalMessageLength)
-            {
-                var messageBytes = _buffer.GetRange(0, UartMessageStruct.TotalMessageLength).ToArray();
-                _buffer.RemoveRange(0, UartMessageStruct.TotalMessageLength);
+            byte[] messageBytes;
+            DataStruct dataStruct;
 
-                // Use the parser to extract combined spectrum data.
-                var combinedSpectrum = _parser.ProcessMessage(messageBytes);
-                SpectrumReceived?.Invoke(combinedSpectrum);
+            switch (_buffer.Count)
+            {
+                case MessageStruct1.TotalMessageLength:
+                    messageBytes = _buffer.GetRange(0, MessageStruct1.TotalMessageLength).ToArray();
+                    _buffer.RemoveRange(0, MessageStruct1.TotalMessageLength);
+
+                    dataStruct = _parser.ProcessMessage(messageBytes);
+                    SpectrumReceived?.Invoke(dataStruct);
+                    break;
+                case MessageStruct2.TotalMessageLength:
+                    messageBytes = _buffer.GetRange(0, MessageStruct1.TotalMessageLength).ToArray();
+                    _buffer.RemoveRange(0, MessageStruct1.TotalMessageLength);
+
+                    dataStruct = _parser.ProcessMessage(messageBytes);
+                    SpectrumReceived?.Invoke(dataStruct);
+                    break;
             }
         }
 

@@ -1,7 +1,6 @@
 ﻿using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
-using System.Linq;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
 {
@@ -11,7 +10,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
     public class SpectrumPainter
     {
         private readonly PlotModel _plotModel;
-        private LineSeries _spectrumSeries;
+        private readonly LineSeries _spectrumSeries;
         private bool _isResetNeeded;
         private bool _isStickToZeroNeeded;
 

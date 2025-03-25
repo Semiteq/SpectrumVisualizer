@@ -3,7 +3,7 @@ using OxyPlot.Axes;
 using OxyPlot.Series;
 using SpectrumVisualizer.Uart.SpectrumJobs;
 
-namespace SpectrumVisualizer.Tests
+namespace SpectrumVisualizer.Tests.Uart
 {
     [TestClass]
     public class SpectrumPainterTests
