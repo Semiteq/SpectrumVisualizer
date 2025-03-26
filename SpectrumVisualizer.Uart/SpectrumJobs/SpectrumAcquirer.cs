@@ -13,6 +13,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         private readonly SerialPort _serialPort;
         private readonly ISpectrumParser _parser;
         private readonly List<byte> _buffer = new();
+        private readonly object _bufferLock = new();
 
         // Event raised when a complete spectrum is available.
         public virtual event Action<DataStruct>? SpectrumReceived;
@@ -59,7 +60,6 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
         }
 
-
         /// <summary>
         /// Stops acquisition by closing the serial port.
         /// Ensures the port is open before closing.
@@ -79,8 +79,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 var bytesToRead = _serialPort.BytesToRead;
                 var receivedBytes = new byte[bytesToRead];
                 _serialPort.Read(receivedBytes, 0, bytesToRead);
-                _buffer.AddRange(receivedBytes);
 
+                // Synchronize access to the buffer.
+                lock (_bufferLock)
+                {
+                    _buffer.AddRange(receivedBytes);
+                }
                 ProcessBuffer();
             }
             catch (Exception ex)
@@ -91,34 +95,92 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
 
         /// <summary>
         /// Processes the accumulated buffer to extract complete messages.
+        /// Uses the first 4 bytes as a header (delimiter) to determine the expected message length.
+        /// The header is included in the total message length.
+        /// If the header is not expected, the message is discarded.
+        /// See the MessageStruct classes for expected headers and message lengths.
         /// </summary>
         protected virtual void ProcessBuffer()
         {
-            byte[] messageBytes;
-            DataStruct dataStruct;
-
-            switch (_buffer.Count)
+            while (true)
             {
-                case MessageStruct1.TotalMessageLength:
-                    messageBytes = _buffer.GetRange(0, MessageStruct1.TotalMessageLength).ToArray();
-                    _buffer.RemoveRange(0, MessageStruct1.TotalMessageLength);
+                byte[] messageBytes = null;
+                int expectedLength = 0;
 
-                    dataStruct = _parser.ProcessMessage(messageBytes);
-                    SpectrumReceived?.Invoke(dataStruct);
-                    break;
+                // Lock the buffer for thread-safe access.
+                lock (_bufferLock)
+                {
+                    // Ensure we have at least 4 bytes to read the header.
+                    if (_buffer.Count < 4)
+                        break;
 
-                case MessageStruct2.TotalMessageLength:
-                    messageBytes = _buffer.GetRange(0, MessageStruct2.TotalMessageLength).ToArray();
-                    _buffer.RemoveRange(0, MessageStruct2.TotalMessageLength);
+                    // Extract the first 4 bytes as header.
+                    var header = _buffer.GetRange(0, 4).ToArray();
 
-                    dataStruct = _parser.ProcessMessage(messageBytes);
-                    SpectrumReceived?.Invoke(dataStruct);
-                    break;
+                    // Determine message type and expected total length
+                    if (AreArraysEqual(header, MessageStruct1.SpectrumDelimiter))
+                    {
+                        expectedLength = MessageStruct1.TotalMessageLength;
+                    }
+                    else if (AreArraysEqual(header, MessageStruct2.SpectrumDelimiter))
+                    {
+                        expectedLength = MessageStruct2.TotalMessageLength;
+                    }
+                    else
+                    {
+                        // Unexpected header, dropping message.
+                        ErrorHandler.Log($"Unknown message header: {BitConverter.ToString(header)}");
+                        _buffer.Clear();
+                        break;
+                    }
 
-                default:
-                    ErrorHandler.Log("Unsupported message length");
-                    break;
+                    // If the buffer does not contain a complete message, wait for more data.
+                    if (_buffer.Count < expectedLength)
+                        break;
+
+                    // Extract the complete message.
+                    messageBytes = [.. _buffer.GetRange(0, expectedLength)];
+                    _buffer.RemoveRange(0, expectedLength);
+                }
+
+                // Process the complete message outside the lock.
+                ProcessMessage(messageBytes);
             }
+        }
+
+        /// <summary>
+        /// Processes a complete message by parsing it and invoking the SpectrumReceived event.
+        /// </summary>
+        /// <param name="messageBytes">Complete message bytes</param>
+        private void ProcessMessage(byte[] messageBytes)
+        {
+            try
+            {
+                var dataStruct = _parser.ProcessMessage(messageBytes);
+                SpectrumReceived?.Invoke(dataStruct);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.Log(ex);
+            }
+        }
+
+        /// <summary>
+        /// Helper method to compare two byte arrays for equality.
+        /// </summary>
+        /// <param name="a1">First array</param>
+        /// <param name="a2">Second array</param>
+        /// <returns>True if arrays are equal, false otherwise</returns>
+        private bool AreArraysEqual(byte[] a1, byte[] a2)
+        {
+            if (a1.Length != a2.Length)
+                return false;
+            for (var i = 0; i < a1.Length; i++)
+            {
+                if (a1[i] != a2[i])
+                    return false;
+            }
+            return true;
         }
 
         public void Dispose()

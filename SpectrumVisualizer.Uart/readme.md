@@ -5,11 +5,11 @@ This project is a spectrum visualization application that acquires data via UART
 ## Features
 
 - **UART Data Acquisition:** 
-  - Receives full messages over a COM port.
-  - Message structure is defined by the `UartMessageStruct` (includes two spectrum blocks and additional fields).
+  - Receives two messages over a COM port.
+  - Messages structure is defined in the `Message` (includes two spectrum blocks and additional fields).
 - **Data Processing:** 
-  - Uses `UartSpectrumParser` to extract and combine two spectrum data blocks into a single `ushort[]` array.
-  - No dark spectrum or integration settings are applied – data is already normalized.
+  - Uses `SpectrumParser` to extract spectrum data blocks into a `DataStruct`.
+  - Assigning wavelengths via `SpectrumCalc`.
 - **Visualization:** 
   - Uses OxyPlot for rendering the spectrum.
   - Basic visualization is provided without marker handling.
@@ -24,11 +24,11 @@ This project is a spectrum visualization application that acquires data via UART
    - System.IO.Ports for UART communication
 
 2. **Configuration:**
-   - Set the correct COM port and baud rate (default: `COM3`, `115200`) in `DeviceManager.cs`.
-   - Adjust `UartMessageStruct` constants if the incoming message structure changes.
+   - Set the correct COM port and baud rate in `DeviceManager.cs`.
+   - Adjust `MessageStruct1` and `MessageStruct2` constants if the incoming message structure changes.
 
 3. **Running the Application:**
-   - Build the project in Visual Studio.
+   - Build the project in Visual Studio via `dotnet publish -r win-x64 -c Release --self-contained true /p:PublishSingleFile=true`.
    - Launch the Spectrum Visualizer application.
    - The application will auto-populate available COM ports; select one to start acquiring and visualizing spectrum data.
 
@@ -38,7 +38,7 @@ This project is a spectrum visualization application that acquires data via UART
 ## Architecture
 
 - **Abstraction:** 
-  - UART message parsing is encapsulated in `UartSpectrumParser` via the `ISpectrumParser` interface.
-  - `UartSpectrumAcquirer` handles low-level data reception, buffering, and message extraction.
+  - UART message parsing is encapsulated in `SpectrumParser` via the `ISpectrumParser` interface.
+  - `SpectrumAcquirer` handles low-level data reception, buffering, and message extraction.
 - **Modular Design:** 
   - Spectrum acquisition, processing, and visualization are separated into distinct classes for improved testability and maintainability.

@@ -55,14 +55,19 @@ namespace SpectrumVisualizer.Uart
         /// </summary>
         private async Task TryConnectAsync()
         {
-            if (await _deviceManager.ConnectAsync(comboBoxCom.SelectedItem.ToString()))
+            if (comboBoxCom.SelectedItem == null) return;
+
+            var portName = comboBoxCom.SelectedItem.ToString();
+            if (string.IsNullOrEmpty(portName)) return;
+
+            if (await _deviceManager.ConnectAsync(portName))
             {
                 StartSpectrumAcquisition();
+                ErrorHandler.Log($"Connected to {portName}");
             }
             else
             {
-                await Task.Delay(1000);
-                await RepopulateComAndTryConnect();
+                ErrorHandler.Log($"Failed to connect to {portName}");
             }
         }
 
@@ -108,6 +113,41 @@ namespace SpectrumVisualizer.Uart
             await _deviceManager.DisconnectAsync();
             StopSpectrumAcquisition();
             base.OnFormClosing(e);
+        }
+
+        private void comboBoxCom_Click(object sender, EventArgs e)
+        {
+            var currentSelection = comboBoxCom.SelectedItem?.ToString();
+            comboBoxCom.Items.Clear();
+            comboBoxCom.Items.AddRange(SerialPort.GetPortNames());
+
+            // Don't trigger selection change if selecting the same port
+            comboBoxCom.SelectedIndexChanged -= comboBoxCom_SelectedIndexChanged;
+            if (currentSelection != null && comboBoxCom.Items.Contains(currentSelection))
+            {
+                comboBoxCom.SelectedItem = currentSelection;
+            }
+            else if (comboBoxCom.Items.Count > 0)
+            {
+                comboBoxCom.SelectedIndex = 0;
+            }
+            comboBoxCom.SelectedIndexChanged += comboBoxCom_SelectedIndexChanged;
+        }
+
+        private async void comboBoxCom_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (comboBoxCom.SelectedItem == null) return;
+
+            try
+            {
+                await _deviceManager.DisconnectAsync();
+                StopSpectrumAcquisition();
+                await TryConnectAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.Log($"Error connecting to {comboBoxCom.SelectedItem}: {ex.Message}");
+            }
         }
     }
 }

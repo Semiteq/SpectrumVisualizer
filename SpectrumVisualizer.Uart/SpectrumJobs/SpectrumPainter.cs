@@ -9,6 +9,11 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
     /// </summary>
     public class SpectrumPainter
     {
+        private const string SpectrumDefaultTitle = "Spectrum";
+        private const string SpectrumWavelengthAxisTitle = "Wavelength [nm]";
+        private const string SpectrumIntensityAxisTitle = "Intensity";
+        private const string SpectrumLogIntensityAxisTitle = "Intensity (Log)";
+        
         private readonly PlotModel _plotModel;
         private readonly LineSeries _spectrumSeries;
         private bool _isResetNeeded;
@@ -16,11 +21,11 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
 
         public SpectrumPainter()
         {
-            _plotModel = new PlotModel { Title = "Spectrum" };
-            _spectrumSeries = new LineSeries { MarkerType = MarkerType.None };
+            _plotModel = CreatePlotModel();
+            _spectrumSeries = CreateSpectrumSeries();
+            
             _plotModel.Series.Add(_spectrumSeries);
-            _plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Wavelength [nm]" });
-            _plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Intensity" });
+            InitializeAxes();
         }
 
         /// <summary>
@@ -28,12 +33,9 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         /// </summary>
         public void UpdateData(Dictionary<double, double> data)
         {
-            var sorted = data.OrderBy(pair => pair.Key).ToArray();
-            _spectrumSeries.Points.Clear();
-            foreach (var pair in sorted)
-            {
-                _spectrumSeries.Points.Add(new DataPoint(pair.Key, pair.Value));
-            }
+            if (data is null) return;
+
+            UpdateSpectrumPoints(data);
 
             if (_isResetNeeded)
             {
@@ -41,19 +43,9 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 _isResetNeeded = false;
             }
 
-            if (_isStickToZeroNeeded && _spectrumSeries.Points.Any())
+            if (_isStickToZeroNeeded && _spectrumSeries.Points.Count != 0)
             {
-                double xMin = _spectrumSeries.Points.Min(p => p.X);
-                double xMax = _spectrumSeries.Points.Max(p => p.X);
-                double yMax = _spectrumSeries.Points.Max(p => p.Y);
-
-                foreach (var axis in _plotModel.Axes)
-                {
-                    if (axis.Position == AxisPosition.Bottom)
-                        axis.Zoom(xMin * 0.95, xMax * 1.05);
-                    else if (axis.Position == AxisPosition.Left)
-                        axis.Zoom(0, yMax * 1.2);
-                }
+                AdjustAxesRange();
                 _isStickToZeroNeeded = false;
             }
 
@@ -65,13 +57,77 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
 
         public void ToggleLogarithmicYAxis(bool useLogScale)
         {
-            _plotModel.Axes.Remove(_plotModel.Axes.FirstOrDefault(a => a.Position == AxisPosition.Left));
-            _plotModel.Axes.Add(useLogScale
-                ? new LogarithmicAxis { Position = AxisPosition.Left, Title = "Intensity (Log)", Base = 10 }
-                : new LinearAxis { Position = AxisPosition.Left, Title = "Intensity" });
+            var currentAxis = _plotModel.Axes.FirstOrDefault(a => a.Position == AxisPosition.Left);
+            _plotModel.Axes.Remove(currentAxis);
+            _plotModel.Axes.Add(CreateYAxis(useLogScale));
             _plotModel.InvalidatePlot(true);
         }
 
         public PlotModel GetPlotModel() => _plotModel;
+
+        private static PlotModel CreatePlotModel() => 
+            new() { Title = SpectrumDefaultTitle };
+
+        private static LineSeries CreateSpectrumSeries() => 
+            new() { MarkerType = MarkerType.None };
+
+        private void InitializeAxes()
+        {
+            _plotModel.Axes.Add(new LinearAxis 
+            { 
+                Position = AxisPosition.Bottom, 
+                Title = SpectrumWavelengthAxisTitle 
+            });
+            
+            _plotModel.Axes.Add(CreateYAxis(false));
+        }
+
+        private static Axis CreateYAxis(bool isLogarithmic) => 
+            isLogarithmic
+                ? new LogarithmicAxis 
+                { 
+                    Position = AxisPosition.Left, 
+                    Title = SpectrumLogIntensityAxisTitle, 
+                    Base = 10 
+                }
+                : new LinearAxis 
+                { 
+                    Position = AxisPosition.Left, 
+                    Title = SpectrumIntensityAxisTitle 
+                };
+
+        private void UpdateSpectrumPoints(Dictionary<double, double> data)
+        {
+            var sorted = data.OrderBy(pair => pair.Key).ToArray();
+            _spectrumSeries.Points.Clear();
+            
+            foreach (var pair in sorted)
+            {
+                _spectrumSeries.Points.Add(new DataPoint(pair.Key, pair.Value));
+            }
+        }
+
+        private void AdjustAxesRange()
+        {
+            const double xMargin = 0.05;
+            const double yMargin = 0.2;
+
+            var xMin = _spectrumSeries.Points.Min(p => p.X);
+            var xMax = _spectrumSeries.Points.Max(p => p.X);
+            var yMax = _spectrumSeries.Points.Max(p => p.Y);
+
+            foreach (var axis in _plotModel.Axes)
+            {
+                switch (axis.Position)
+                {
+                    case AxisPosition.Bottom:
+                        axis.Zoom(xMin * (1 - xMargin), xMax * (1 + xMargin));
+                        break;
+                    case AxisPosition.Left:
+                        axis.Zoom(0, yMax * (1 + yMargin));
+                        break;
+                }
+            }
+        }
     }
 }

@@ -50,6 +50,7 @@
             comboBoxCom.Name = "comboBoxCom";
             comboBoxCom.Size = new Size(150, 28);
             comboBoxCom.TabIndex = 0;
+            comboBoxCom.Click += comboBoxCom_Click;
             // 
             // plotView
             // 

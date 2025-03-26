@@ -22,10 +22,15 @@ namespace SpectrumVisualizer.Tests.Uart
         {
             // Arrange
             var message = new byte[MessageStruct1.TotalMessageLength];
+            var delimiter = MessageStruct1.SpectrumDelimiter;
+
+            // Fill the entire message with the delimiter at the start
+            Array.Copy(delimiter, message, delimiter.Length);
+
             var expectedData = new DataStruct(MessageStruct1.SpectrumLength / 2);
             DataStruct? receivedData = null;
 
-            _mockParser.Setup(p => p.ProcessMessage(It.Is<byte[]>(b => b.Length == MessageStruct1.TotalMessageLength)))
+            _mockParser.Setup(p => p.ProcessMessage(It.IsAny<byte[]>()))
                 .Returns(expectedData);
             _acquirer.SpectrumReceived += data => receivedData = data;
 
@@ -34,8 +39,7 @@ namespace SpectrumVisualizer.Tests.Uart
 
             // Assert
             Assert.IsNotNull(receivedData);
-            _mockParser.Verify(p => p.ProcessMessage(It.Is<byte[]>(b => b.Length == MessageStruct1.TotalMessageLength)),
-                Times.Once);
+            _mockParser.Verify(p => p.ProcessMessage(It.IsAny<byte[]>()), Times.Once);
         }
 
         [TestMethod]
@@ -43,6 +47,7 @@ namespace SpectrumVisualizer.Tests.Uart
         {
             // Arrange
             var message = new byte[MessageStruct2.TotalMessageLength];
+            MessageStruct2.SpectrumDelimiter.CopyTo(message, 0);
             var expectedData = new DataStruct(MessageStruct2.SpectrumLength / 2);
             DataStruct? receivedData = null;
 
@@ -84,24 +89,32 @@ namespace SpectrumVisualizer.Tests.Uart
 
             public void TestProcessBuffer(byte[] data)
             {
-                GetBuffer().Clear();
-                GetBuffer().AddRange(data);
+                lock (GetBufferLock())
+                {
+                    GetBuffer().Clear();
+                    GetBuffer().AddRange(data);
+                }
                 ProcessBuffer();
             }
 
-            private List<byte> GetBuffer() =>
-                (List<byte>)GetType().BaseType
-                    .GetField("_buffer",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    .GetValue(this);
-
-            public override void Start()
+            private List<byte> GetBuffer()
             {
+                var field = GetType().BaseType?
+                    .GetField("_buffer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?? throw new InvalidOperationException("Cannot access buffer field");
+                return (List<byte>)field.GetValue(this);
             }
 
-            public override void Stop()
+            private object GetBufferLock()
             {
+                var field = GetType().BaseType?
+                    .GetField("_bufferLock", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?? throw new InvalidOperationException("Cannot access buffer lock field");
+                return field.GetValue(this);
             }
+
+            public override void Start() { }
+            public override void Stop() { }
         }
     }
 }

@@ -2,6 +2,8 @@
 {
     public struct MessageStruct1
     {
+        public static readonly byte[] SpectrumDelimiter = { 0x00, 0x00, 0x00, 0x01 };
+
         // Data presented in bytes
         public const int SpectrumDelimiterLegth = 4;
         public const int SpectrumLength = 4096; // 2048 ushort

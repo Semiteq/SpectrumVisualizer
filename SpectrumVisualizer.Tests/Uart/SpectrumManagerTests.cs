@@ -103,7 +103,7 @@ namespace SpectrumVisualizer.Tests.Uart
             double? receivedQuality = null;
 
             manager.StartAcquisition(
-                updateUI: dict => receivedData = dict,
+                updateUi: dict => receivedData = dict,
                 updateSpectrumInfo: (avg, snr, quality) =>
                 {
                     receivedAverage = avg;
@@ -147,7 +147,7 @@ namespace SpectrumVisualizer.Tests.Uart
             Dictionary<double, double>? receivedDataInverted = null;
 
             manager.StartAcquisition(
-                updateUI: dict => receivedDataNormal = dict,
+                updateUi: dict => receivedDataNormal = dict,
                 updateSpectrumInfo: (average, snr, quality) =>
                 {
                     /* Ignored for this test */
@@ -160,7 +160,7 @@ namespace SpectrumVisualizer.Tests.Uart
 
             manager.FlipInvertFlag();
             manager.StartAcquisition(
-                updateUI: dict => receivedDataInverted = dict,
+                updateUi: dict => receivedDataInverted = dict,
                 updateSpectrumInfo: (average, snr, quality) =>
                 {
                     /* Ignored for this test */

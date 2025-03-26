@@ -5,18 +5,12 @@
     /// Receives complete spectrum data from UartSpectrumAcquirer in form of UartMessageData,
     /// optionally applies inversion, and converts it for display.
     /// </summary>
-    public class SpectrumManager
+    public class SpectrumManager(SpectrumAcquirer acquirer)
     {
-        private readonly SpectrumAcquirer _acquirer;
         private bool _isInverse = false;
 
         // Event handler with UartMessageData parameter.
         private Action<DataStruct>? _spectrumHandler;
-
-        public SpectrumManager(SpectrumAcquirer acquirer)
-        {
-            _acquirer = acquirer;
-        }
 
         /// <summary>
         /// Toggles the inversion flag.
@@ -27,7 +21,7 @@
         /// Starts continuous spectrum acquisition.
         /// The updateUI callback is invoked with full UartMessageData including spectrum, average, SNR and quality.
         /// </summary>
-        public void StartAcquisition(Action<Dictionary<double, double>> updateUI, Action<double, double, double> updateSpectrumInfo)
+        public void StartAcquisition(Action<Dictionary<double, double>> updateUi, Action<double, double, double> updateSpectrumInfo)
         {
             // Create a new event handler instance.
             _spectrumHandler = data =>
@@ -44,20 +38,20 @@
 
                 var dict = new Dictionary<double, double>();
 
-                // Clarifing spectrometer type depending on spectrum length 1 for 2048, 2 for 512
-                int SpectrumeterType = data.Spectrum.Length == 2048 ? 1 : 2;
+                // Clarifying spectrometer type depending on spectrum length 1 for 2048, 2 for 512
+                var spectrometerType = data.Spectrum.Length == 2048 ? 1 : 2;
 
                 for (var i = 0; i < data.Spectrum.Length; i++)
                 {
-                    dict.Add(SpectrumCalc.WaveLength(i, SpectrumeterType), data.Spectrum[i]);
+                    dict.Add(SpectrumCalc.WaveLength(i, spectrometerType), data.Spectrum[i]);
                 }
 
-                updateUI(dict);
+                updateUi(dict);
                 updateSpectrumInfo(data.Average, data.Snr, data.Quality);
             };
 
-            _acquirer.SpectrumReceived += _spectrumHandler;
-            _acquirer.Start();
+            acquirer.SpectrumReceived += _spectrumHandler;
+            acquirer.Start();
         }
 
         /// <summary>
@@ -65,10 +59,10 @@
         /// </summary>
         public void StopAcquisition()
         {
-            _acquirer.Stop();
+            acquirer.Stop();
             if (_spectrumHandler is not null)
             {
-                _acquirer.SpectrumReceived -= _spectrumHandler;
+                acquirer.SpectrumReceived -= _spectrumHandler;
                 _spectrumHandler = null;
             }
         }

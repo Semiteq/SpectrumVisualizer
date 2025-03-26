@@ -2,30 +2,20 @@
 {
     public static class SpectrumCalc
     {
-        // Data optained directly from the spectrometers via vendor dll
-        private static readonly double[] firstSpectrometer = [-8.969E-10, 1.126E-5, 0.390762, 185.89856];
-        private static readonly double[] secondSpectrometer = [4.519E-8, 9.568E-5, 3.00962138, 895.373169];
+        // Data obtained directly from the spectrometers via vendor dll
+        private static readonly double[] FirstSpectrometerCoefficients = [185.89856, 0.390762, 1.126E-5, -8.969E-10];
+        private static readonly double[] SecondSpectrometerCoefficients = [895.373169, 3.00962138, 9.568E-5, 4.519E-8];
         public static double WaveLength(int pixel, int messageNumber)
         {
             double wavelength = 0;
             switch (messageNumber)
             {
                 case 1:
-
-                    for (int i = 0; i < firstSpectrometer.Length; i++)
-                    {
-                        wavelength += firstSpectrometer[i] * Math.Pow(pixel, i);
-                    }
-
+                    wavelength += FirstSpectrometerCoefficients.Select((t, i) => t * Math.Pow(pixel, i)).Sum();
                     return wavelength;
 
                 case 2:
-
-                    for (int i = 0; i < secondSpectrometer.Length; i++)
-                    {
-                        wavelength += secondSpectrometer[i] * Math.Pow(pixel, i);
-                    }
-
+                    wavelength += SecondSpectrometerCoefficients.Select((t, i) => t * Math.Pow(pixel, i)).Sum();
                     return wavelength;
 
                 default:
