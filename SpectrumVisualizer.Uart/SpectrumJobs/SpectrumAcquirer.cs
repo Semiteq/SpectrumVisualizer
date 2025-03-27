@@ -1,4 +1,4 @@
-using System.IO.Ports;
+﻿using System.IO.Ports;
 using SpectrumVisualizer.Uart.Message;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
