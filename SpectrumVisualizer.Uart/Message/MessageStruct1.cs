@@ -2,7 +2,7 @@
 {
     public struct MessageStruct1
     {
-        public static readonly byte[] SpectrumDelimiter = { 0x00, 0x00, 0x00, 0x01 };
+        public static readonly byte[] SpectrumDelimiter = { 0x00, 0x01, 0x00, 0x00 };
 
         // Data presented in bytes
         public const int SpectrumDelimiterLegth = 4;

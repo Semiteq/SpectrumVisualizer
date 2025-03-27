@@ -2,7 +2,7 @@
 {
     public class DataStruct(int spectrumLength)
     {
-        public readonly double[] Spectrum = new double[spectrumLength];
+        public readonly ushort[] Spectrum = new ushort[spectrumLength];
 
         public double Average;
 

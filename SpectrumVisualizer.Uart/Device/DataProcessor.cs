@@ -25,8 +25,8 @@
                 _hasNewData = true; // Indicate that new data is available.
                 if (!_isProcessing) // Start processing only if it's not already running.
                 {
-                    _isProcessing = true; 
-                    _processingTask = Task.Run(async () => // Start a new task to run the processing loop.
+                    _isProcessing = true;
+                    _processingTask = Task.Run((Func<Task?>)(async () => // Start a new task to run the processing loop.
                     {
                         try
                         {
@@ -34,9 +34,9 @@
                         }
                         catch (Exception ex)
                         {
-                            ErrorHandler.Log(ex);
+                            EventHandler.Log(ex);
                         }
-                    });
+                    }));
                 }
             }
         }

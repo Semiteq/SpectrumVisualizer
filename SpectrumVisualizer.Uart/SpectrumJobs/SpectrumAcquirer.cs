@@ -31,7 +31,6 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
 
         /// <summary>
         /// Opens the serial port and starts acquisition.
-        /// Ensures the port is not already open.
         /// </summary>
         public virtual void Start()
         {
@@ -44,25 +43,24 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
             catch (UnauthorizedAccessException ex)
             {
-                ErrorHandler.Log(new Exception("Access to the COM port is denied.", ex));
+                EventHandler.Log(new Exception("Access to the COM port is denied.", ex));
             }
             catch (IOException ex)
             {
-                ErrorHandler.Log(new Exception("Error accessing the COM port.", ex));
+                EventHandler.Log(new Exception("Error accessing the COM port.", ex));
             }
             catch (InvalidOperationException ex)
             {
-                ErrorHandler.Log(new Exception("Attempted to open an already open COM port.", ex));
+                EventHandler.Log(new Exception("Attempted to open an already open COM port.", ex));
             }
             catch (Exception ex)
             {
-                ErrorHandler.Log(ex);
+                EventHandler.Log(ex);
             }
         }
 
         /// <summary>
         /// Stops acquisition by closing the serial port.
-        /// Ensures the port is open before closing.
         /// </summary>
         public virtual void Stop()
         {
@@ -89,16 +87,13 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
             catch (Exception ex)
             {
-                ErrorHandler.Log(ex);
+                EventHandler.Log(ex);
             }
         }
 
         /// <summary>
         /// Processes the accumulated buffer to extract complete messages.
-        /// Uses the first 4 bytes as a header (delimiter) to determine the expected message length.
-        /// The header is included in the total message length.
-        /// If the header is not expected, the message is discarded.
-        /// See the MessageStruct classes for expected headers and message lengths.
+        /// It scans for valid headers and removes extraneous bytes before the header.
         /// </summary>
         protected virtual void ProcessBuffer()
         {
@@ -106,44 +101,61 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             {
                 byte[] messageBytes = null;
                 int expectedLength = 0;
+                bool headerFound = false;
+                int headerIndex = -1;
 
-                // Lock the buffer for thread-safe access.
                 lock (_bufferLock)
                 {
-                    // Ensure we have at least 4 bytes to read the header.
+                    // Need at least 4 bytes to identify a header.
                     if (_buffer.Count < 4)
                         break;
 
-                    // Extract the first 4 bytes as header.
-                    var header = _buffer.GetRange(0, 4).ToArray();
+                    // Scan for a valid header in the buffer.
+                    for (var i = 0; i <= _buffer.Count - 4; i++)
+                    {
+                        var potentialHeader = _buffer.GetRange(i, 4).ToArray();
+                        if (AreArraysEqual(potentialHeader, MessageStruct1.SpectrumDelimiter))
+                        {
+                            expectedLength = MessageStruct1.TotalMessageLength;
+                            headerFound = true;
+                            headerIndex = i;
+                            break;
+                        }
+                        else if (AreArraysEqual(potentialHeader, MessageStruct2.SpectrumDelimiter))
+                        {
+                            expectedLength = MessageStruct2.TotalMessageLength;
+                            headerFound = true;
+                            headerIndex = i;
+                            break;
+                        }
+                    }
 
-                    // Determine message type and expected total length
-                    if (AreArraysEqual(header, MessageStruct1.SpectrumDelimiter))
+                    if (!headerFound)
                     {
-                        expectedLength = MessageStruct1.TotalMessageLength;
-                    }
-                    else if (AreArraysEqual(header, MessageStruct2.SpectrumDelimiter))
-                    {
-                        expectedLength = MessageStruct2.TotalMessageLength;
-                    }
-                    else
-                    {
-                        // Unexpected header, dropping message.
-                        ErrorHandler.Log($"Unknown message header: {BitConverter.ToString(header)}");
-                        _buffer.Clear();
+                        // No valid header found.
+                        // Remove all bytes except the last 3 (which may be the start of a header).
+                        var removeCount = _buffer.Count - 3;
+                        _buffer.RemoveRange(0, removeCount);
                         break;
                     }
 
-                    // If the buffer does not contain a complete message, wait for more data.
+                    // Discard any extraneous bytes before the header.
+                    if (headerIndex > 0)
+                    {
+                        _buffer.RemoveRange(0, headerIndex);
+                    }
+
+                    // Check if we have a complete message.
                     if (_buffer.Count < expectedLength)
                         break;
 
-                    // Extract the complete message.
-                    messageBytes = [.. _buffer.GetRange(0, expectedLength)];
+                    // Extract complete message.
+                    messageBytes = _buffer.GetRange(0, expectedLength).ToArray();
                     _buffer.RemoveRange(0, expectedLength);
                 }
 
-                // Process the complete message outside the lock.
+                // Log message details (optional).
+                //ErrorHandler.Log($"Message length: {messageBytes.Length}. Start 4 bytes: {BitConverter.ToString(messageBytes.Take(4).ToArray())}, End 4 bytes: {BitConverter.ToString(messageBytes.Skip(messageBytes.Length - 4).ToArray())}");
                 ProcessMessage(messageBytes);
             }
         }
@@ -161,12 +173,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
             catch (Exception ex)
             {
-                ErrorHandler.Log(ex);
+                EventHandler.Log(ex);
             }
         }
 
         /// <summary>
-        /// Helper method to compare two byte arrays for equality.
+        /// Compares two byte arrays for equality.
         /// </summary>
         /// <param name="a1">First array</param>
         /// <param name="a2">Second array</param>

@@ -18,7 +18,7 @@ namespace SpectrumVisualizer.Uart
         {
             InitializeComponent();
 
-            ErrorHandler.LoggingBox = loggingBox;
+            EventHandler.LoggingBox = loggingBox;
 
             // Invert flag toggling for display (inversion is applied in SpectrumManager)
             checkBoxInvertData.CheckedChanged += (s, e) => _spectrumManager.FlipInvertFlag();
@@ -63,11 +63,11 @@ namespace SpectrumVisualizer.Uart
             if (await _deviceManager.ConnectAsync(portName))
             {
                 StartSpectrumAcquisition();
-                ErrorHandler.Log($"Connected to {portName}");
+                EventHandler.Log($"Connected to {portName}");
             }
             else
             {
-                ErrorHandler.Log($"Failed to connect to {portName}");
+                EventHandler.Log($"Failed to connect to {portName}");
             }
         }
 
@@ -146,7 +146,7 @@ namespace SpectrumVisualizer.Uart
             }
             catch (Exception ex)
             {
-                ErrorHandler.Log($"Error connecting to {comboBoxCom.SelectedItem}: {ex.Message}");
+                EventHandler.Log($"Error connecting to {comboBoxCom.SelectedItem}: {ex.Message}");
             }
         }
     }

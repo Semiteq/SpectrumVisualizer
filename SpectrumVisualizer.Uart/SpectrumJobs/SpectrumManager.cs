@@ -29,10 +29,10 @@
                 // If inversion is enabled, subtract each value from the maximum.
                 if (_isInverse)
                 {
-                    var maxValue = data.Spectrum.Max();
+                    ushort maxValue = data.Spectrum.Max();
                     for (var i = 0; i < data.Spectrum.Length; i++)
                     {
-                        data.Spectrum[i] = maxValue - data.Spectrum[i];
+                        data.Spectrum[i] = (ushort)(maxValue - data.Spectrum[i]);
                     }
                 }
 

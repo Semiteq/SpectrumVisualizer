@@ -30,7 +30,7 @@ namespace SpectrumVisualizer.Uart.Device
             }
             catch (Exception ex)
             {
-                ErrorHandler.Log(ex);
+                EventHandler.Log(ex);
                 return false;
             }
         }

@@ -109,7 +109,7 @@
             buttonClearLog.Location = new Point(91, 786);
             buttonClearLog.Margin = new Padding(3, 4, 3, 4);
             buttonClearLog.Name = "buttonClearLog";
-            buttonClearLog.Size = new Size(86, 30);
+            buttonClearLog.Size = new Size(86, 36);
             buttonClearLog.TabIndex = 14;
             buttonClearLog.Text = "Clear log";
             buttonClearLog.UseVisualStyleBackColor = true;

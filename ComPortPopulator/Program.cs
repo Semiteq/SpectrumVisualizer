@@ -21,8 +21,6 @@ namespace ComPortPopulator
             _timer = new Timer(1000);
             _timer.Elapsed += TimerElapsed;
             _timer.AutoReset = true;
-
-
         }
 
         // Start sending messages periodically
@@ -34,7 +32,8 @@ namespace ComPortPopulator
         // Timer callback that writes a byte array to the COM port
         private void TimerElapsed(object? sender, ElapsedEventArgs e)
         {
-            var _message = GenerateRandomByteArray(1034);
+            //var _message = GenerateSmoothGradient(1034);
+            var _message = ReadFromFile("C:/Users/admin/Desktop/plot_yat_data/yat_data.txt");
             // Write the byte array to the serial port
             _serialPort.Write(_message, 0, _message.Length);
         }
@@ -51,20 +50,41 @@ namespace ComPortPopulator
             _serialPort?.Dispose();
         }
 
-        private static byte[] GenerateRandomByteArray(int length)
+        private static byte[] GenerateSmoothGradient(int length)
         {
             if (length < 4)
                 throw new ArgumentException("Array length must be at least 4 bytes.", nameof(length));
 
-            var random = new Random();
             var data = new byte[length];
-            random.NextBytes(data);
+
+            for (var i = 0; i < length; i++)
+            {
+                // Линейный градиент от 0 до 255
+                data[i] = (byte)(255.0 * i / (length - 1));
+            }
 
             // Header
             data[0] = 0x00;
-            data[1] = 0x00;
+            data[1] = 0x02;
             data[2] = 0x00;
-            data[3] = 0x02;
+            data[3] = 0x00;
+
+            return data;
+        }
+
+        private static byte[] ReadFromFile(string path)
+        {
+            var hexData = File.ReadAllText(path)
+                              .Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+
+            byte[] data = new byte[hexData.Length];
+
+            for (int i = 0; i < hexData.Length; i++)
+            {
+                string cleanHex = hexData[i].TrimEnd('h'); // Удаляем 'h' в конце
+                data[i] = Convert.ToByte(cleanHex, 16);
+            }
+
             return data;
         }
     }
