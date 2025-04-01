@@ -32,7 +32,7 @@ namespace ComPortPopulator
         // Timer callback that writes a byte array to the COM port
         private void TimerElapsed(object? sender, ElapsedEventArgs e)
         {
-            //var _message = GenerateSmoothGradient(1034);
+            // var _message = GenerateSmoothGradient(1050);
             var _message = ReadFromFile("C:/Users/admin/Desktop/plot_yat_data/yat_data.txt");
             // Write the byte array to the serial port
             _serialPort.Write(_message, 0, _message.Length);
@@ -66,9 +66,23 @@ namespace ComPortPopulator
             // Header
             data[0] = 0x00;
             data[1] = 0x02;
-            data[2] = 0x00;
-            data[3] = 0x00;
-
+            data[2] = 0xFF;
+            data[3] = 0xFF;
+            data[4] = 0xFF;
+            data[5] = 0xFF;
+            data[6] = 0xFF;
+            data[7] = 0xFF;
+            
+            // Footer
+            data[1043] = 0xFF;
+            data[1044] = 0xFF;
+            data[1045] = 0xFF;
+            data[1046] = 0xFF;
+            data[1047] = 0xFF;
+            data[1048] = 0xFF;
+            data[1049] = 0x02;
+            data[1050] = 0x00;
+            
             return data;
         }
 

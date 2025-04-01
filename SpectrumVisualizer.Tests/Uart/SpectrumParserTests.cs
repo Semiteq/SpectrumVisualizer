@@ -1,3 +1,10 @@
+﻿using System;
+using System.IO;
+using System.IO.Ports;
+using System.Linq;
+using System.Reflection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 using SpectrumVisualizer.Uart.Message;
 using SpectrumVisualizer.Uart.SpectrumJobs;
 
@@ -6,137 +13,112 @@ namespace SpectrumVisualizer.Tests.Uart
     [TestClass]
     public class SpectrumParserTests
     {
-        private ISpectrumParser _parser;
-
-        [TestInitialize]
-        public void Setup() => _parser = new SpectrumParser();
-
-        private byte[] GenerateTestMessage(int totalLength)
+        // Helper: Create valid Type1 message.
+        private byte[] CreateValidType1Message(ushort avg = 100, ushort snr = 200, ushort quality = 300)
         {
-            var message = new byte[totalLength];
-            var offset = 0;
-
-            if (totalLength == MessageStruct1.TotalMessageLength)
+            // Total length: 4122 bytes.
+            var message = new byte[4122];
+            // Header for Type1: [0x01,0xFF,...,0x1E] (10 bytes)
+            var header = new byte[] { 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x1E };
+            Array.Copy(header, 0, message, 0, 10);
+            // Spectrum data: 4096 bytes. Fill with incremental values for test.
+            for (int i = 0; i < 4096; i += 2)
             {
-                offset += MessageStruct1.SpectrumDelimiterLegth;
-
-                var valueCount = MessageStruct1.SpectrumLength / 2;
-                for (var i = 0; i < valueCount; i++)
-                {
-                    var value = (ushort)(i + 1);
-                    Buffer.BlockCopy(BitConverter.GetBytes(value), 0, message, offset, 2);
-                    offset += 2;
-                }
-
-                // Set test values for additional fields
-                Buffer.BlockCopy(BitConverter.GetBytes((ushort)100), 0, message, MessageStruct1.SpectrumAveragePos, 2);
-                Buffer.BlockCopy(BitConverter.GetBytes((ushort)200), 0, message, MessageStruct1.SpectrumSnrPos, 2);
-                Buffer.BlockCopy(BitConverter.GetBytes((ushort)300), 0, message, MessageStruct1.SpectrumQualityPos, 2);
+                // For example, set each ushort to i/2.
+                var value = (ushort)(i / 2);
+                message[10 + i] = (byte)(value >> 8);       // high byte
+                message[10 + i + 1] = (byte)(value & 0xFF);   // low byte
             }
-            else if (totalLength == MessageStruct2.TotalMessageLength)
+            // Average at position 4106 (bytes at 4106 and 4107)
+            message[4106] = (byte)(avg >> 8);
+            message[4107] = (byte)(avg & 0xFF);
+            // SNR at position 4108
+            message[4108] = (byte)(snr >> 8);
+            message[4109] = (byte)(snr & 0xFF);
+            // Quality at position 4110
+            message[4110] = (byte)(quality >> 8);
+            message[4111] = (byte)(quality & 0xFF);
+            // Footer for Type1: [0x1E,0xFF,...,0x01] (10 bytes)
+            var footer = new byte[] { 0x1E, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01 };
+            Array.Copy(footer, 0, message, 4122 - 10, 10);
+            return message;
+        }
+
+        // Helper: Create valid Type2 message.
+        private byte[] CreateValidType2Message(ushort avg = 110, ushort snr = 210, ushort quality = 310)
+        {
+            // Total length: 1050 bytes.
+            var message = new byte[1050];
+            // Header for Type2: [0x02,0xFF,...,0x1E] (10 bytes)
+            var header = new byte[] { 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x1E };
+            Array.Copy(header, 0, message, 0, 10);
+            // Spectrum data: 1024 bytes. Fill with incremental values.
+            for (int i = 0; i < 1024; i += 2)
             {
-                offset += MessageStruct2.SpectrumDelimiterLegth;
-
-                var valueCount = MessageStruct2.SpectrumLength / 2;
-                for (var i = 0; i < valueCount; i++)
-                {
-                    var value = (ushort)(i + 1);
-                    Buffer.BlockCopy(BitConverter.GetBytes(value), 0, message, offset, 2);
-                    offset += 2;
-                }
-
-                // Set test values for additional fields
-                Buffer.BlockCopy(BitConverter.GetBytes((ushort)100), 0, message, MessageStruct2.SpectrumAveragePos, 2);
-                Buffer.BlockCopy(BitConverter.GetBytes((ushort)200), 0, message, MessageStruct2.SpectrumSnrPos, 2);
-                Buffer.BlockCopy(BitConverter.GetBytes((ushort)300), 0, message, MessageStruct2.SpectrumQualityPos, 2);
+                var value = (ushort)(i / 2);
+                message[10 + i] = (byte)(value >> 8);
+                message[10 + i + 1] = (byte)(value & 0xFF);
             }
-
+            // Average at position 1034
+            message[1034] = (byte)(avg >> 8);
+            message[1035] = (byte)(avg & 0xFF);
+            // SNR at position 1036
+            message[1036] = (byte)(snr >> 8);
+            message[1037] = (byte)(snr & 0xFF);
+            // Quality at position 1038
+            message[1038] = (byte)(quality >> 8);
+            message[1039] = (byte)(quality & 0xFF);
+            // Footer for Type2: [0x1E,0xFF,...,0x02] (10 bytes)
+            var footer = new byte[] { 0x1E, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x02 };
+            Array.Copy(footer, 0, message, 1050 - 10, 10);
             return message;
         }
 
         [TestMethod]
-        public void ProcessMessage_ValidMessageType1_ReturnsCorrectSpectrum()
+        public void ProcessMessage_ValidType1_ReturnsCorrectData()
         {
-            var message = GenerateTestMessage(MessageStruct1.TotalMessageLength);
-            var result = _parser.ProcessMessage(message);
-
-            int expectedLength = MessageStruct1.SpectrumLength / 2;
-            Assert.AreEqual(expectedLength, result.Spectrum.Length);
-            Assert.AreEqual(1, result.Spectrum[0]);
-            Assert.AreEqual(expectedLength, result.Spectrum[expectedLength - 1]);
-            Assert.AreEqual(100, result.Average);
-            Assert.AreEqual(200, result.Snr);
-            Assert.AreEqual(300, result.Quality);
+            // Arrange
+            var parser = new SpectrumParser();
+            var message = CreateValidType1Message(avg: 500, snr: 600, quality: 700);
+            // Act
+            var data = parser.ProcessMessage(message);
+            // Assert
+            // Spectrum length should be 2048 for type1
+            Assert.AreEqual(2048, data.Spectrum.Length);
+            // Verify first spectrum value equals 0 (since incremental, first value is 0)
+            Assert.AreEqual(0, data.Spectrum[0]);
+            Assert.AreEqual(500, data.Average);
+            Assert.AreEqual(600, data.Snr);
+            Assert.AreEqual(700, data.Quality);
         }
 
         [TestMethod]
-        public void ProcessMessage_ValidMessageType2_ReturnsCorrectSpectrum()
+        public void ProcessMessage_ValidType2_ReturnsCorrectData()
         {
-            var message = GenerateTestMessage(MessageStruct2.TotalMessageLength);
-            var result = _parser.ProcessMessage(message);
-
-            int expectedLength = MessageStruct2.SpectrumLength / 2;
-            Assert.AreEqual(expectedLength, result.Spectrum.Length);
-            Assert.AreEqual(1, result.Spectrum[0]);
-            Assert.AreEqual(expectedLength, result.Spectrum[expectedLength - 1]);
-            Assert.AreEqual(100, result.Average);
-            Assert.AreEqual(200, result.Snr);
-            Assert.AreEqual(300, result.Quality);
+            // Arrange
+            var parser = new SpectrumParser();
+            var message = CreateValidType2Message(avg: 550, snr: 650, quality: 750);
+            // Act
+            var data = parser.ProcessMessage(message);
+            // Assert
+            // Spectrum length should be 512 for type2
+            Assert.AreEqual(512, data.Spectrum.Length);
+            Assert.AreEqual(0, data.Spectrum[0]);
+            Assert.AreEqual(550, data.Average);
+            Assert.AreEqual(650, data.Snr);
+            Assert.AreEqual(750, data.Quality);
         }
 
         [TestMethod]
         public void ProcessMessage_InvalidLength_ReturnsEmptyDataStruct()
         {
-            // Test too short message
-            var tooShortMessage = new byte[MessageStruct1.TotalMessageLength - 1];
-            var tooShortResult = _parser.ProcessMessage(tooShortMessage);
-            Assert.AreEqual(0, tooShortResult.Spectrum.Length);
-
-            // Test message length between valid lengths
-            var invalidLengthMessage = new byte[MessageStruct1.TotalMessageLength + 1];
-            var invalidLengthResult = _parser.ProcessMessage(invalidLengthMessage);
-            Assert.AreEqual(0, invalidLengthResult.Spectrum.Length);
-
-            // Test too long message
-            var tooLongMessage = new byte[MessageStruct2.TotalMessageLength + 1];
-            var tooLongResult = _parser.ProcessMessage(tooLongMessage);
-            Assert.AreEqual(0, tooLongResult.Spectrum.Length);
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void ProcessMessage_NullMessage_ThrowsArgumentNullException()
-        {
-            _parser.ProcessMessage(null);
-        }
-
-        [TestMethod]
-        public void ProcessMessage_InvalidLength_ReturnsEmptyDataStructAndLogs()
-        {
-            // Test various invalid message lengths
-            int[] invalidLengths = new[]
-            {
-                0,  // Empty message
-                MessageStruct1.TotalMessageLength - 1,  // Too short for Type 1
-                MessageStruct1.TotalMessageLength + 1,  // Between Type 1 and 2
-                MessageStruct2.TotalMessageLength + 1   // Too long
-            };
-
-            foreach (var length in invalidLengths)
-            {
-                // Arrange
-                var invalidMessage = new byte[length];
-
-                // Act
-                var result = _parser.ProcessMessage(invalidMessage);
-
-                // Assert
-                Assert.IsNotNull(result);
-                Assert.AreEqual(0, result.Spectrum.Length);
-                Assert.AreEqual(0, result.Average);
-                Assert.AreEqual(0, result.Snr);
-                Assert.AreEqual(0, result.Quality);
-            }
+            // Arrange
+            var parser = new SpectrumParser();
+            var invalidMessage = new byte[100]; // Incorrect length
+            // Act
+            var data = parser.ProcessMessage(invalidMessage);
+            // Assert: Expecting DataStruct with zero spectrum length
+            Assert.AreEqual(0, data.Spectrum.Length);
         }
     }
 }

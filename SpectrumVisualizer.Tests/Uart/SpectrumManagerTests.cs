@@ -1,187 +1,112 @@
+﻿using Moq;
 using SpectrumVisualizer.Uart.Message;
 using SpectrumVisualizer.Uart.SpectrumJobs;
 
 namespace SpectrumVisualizer.Tests.Uart
 {
-    // Fake acquirer that simulates receiving a full UART message.
-    internal class FakeUartSpectrumAcquirer : IDisposable
-    {
-        // Virtual event using the new UartMessageData type.
-        public virtual event Action<DataStruct>? SpectrumReceived;
-
-        // Virtual methods to simulate start and stop.
-        public virtual void Start()
-        {
-            /* Simulated start */
-        }
-
-        public virtual void Stop()
-        {
-            /* Simulated stop */
-        }
-
-        public void Dispose()
-        {
-        }
-
-        // Simulate receiving a complete message.
-        public void SimulateMessage(byte[] message)
-        {
-            // Use the real parser to process the message.
-            var parser = new SpectrumParser();
-            var result = parser.ProcessMessage(message);
-            SpectrumReceived?.Invoke(result);
-        }
-    }
-
-    // Wrapper to allow FakeUartSpectrumAcquirer to be used in UartSpectrumManager.
-    internal class FakeAcquirerWrapper : SpectrumAcquirer
-    {
-        private readonly FakeUartSpectrumAcquirer _fake;
-
-        public override event Action<DataStruct>? SpectrumReceived
-        {
-            add { _fake.SpectrumReceived += value; }
-            remove { _fake.SpectrumReceived -= value; }
-        }
-
-        public FakeAcquirerWrapper(FakeUartSpectrumAcquirer fake)
-            : base("COM_FAKE", 115200, new SpectrumParser())
-        {
-            _fake = fake;
-        }
-
-        public override void Start() => _fake.Start();
-        public override void Stop() => _fake.Stop();
-    }
-
     [TestClass]
     public class SpectrumManagerTests
     {
-        // Generates a test message according to UartFirstMessageStruct.
-        // Fills first spectrum data with sequential ushort values (1, 2, …).
-        // The additional fields (average, SNR, quality) are filled with zeros.
-        private byte[] GenerateTestMessage()
-        {
-            var totalLength = MessageStruct1.TotalMessageLength;
-            var message = new byte[totalLength];
-            var offset = 0;
-
-            // Write spectrum delimiter (4 bytes); remains zeros.
-            offset += MessageStruct1.SpectrumDelimiterLegth;
-
-            // Write spectrum data (4096 bytes representing 2048 ushort values).
-            var valueCount = MessageStruct1.SpectrumLength / 2;
-            for (var i = 0; i < valueCount; i++)
-            {
-                // Each ushort value is (i+1)
-                var value = (ushort)(i + 1);
-                Buffer.BlockCopy(BitConverter.GetBytes(value), 0, message, offset, 2);
-                offset += 2;
-            }
-
-            // Write additional fields: average, SNR, quality (2 bytes each).
-            // For testing, these fields are left as zeros.
-            offset += MessageStruct1.SpectrumAverageLength +
-                      MessageStruct1.SpectrumSnrLength +
-                      MessageStruct1.SpectrumQualityLength;
-
-            return message;
-        }
-
         [TestMethod]
-        public void StartAcquisition_ProcessesSpectrumData_Correctly()
+        public void StartAcquisition_SpectrumReceived_EventTriggersUpdateCallbacks()
         {
             // Arrange
-            var fakeAcquirer = new FakeUartSpectrumAcquirer();
-            var acquirerWrapper = new FakeAcquirerWrapper(fakeAcquirer);
-            var manager = new SpectrumManager(acquirerWrapper);
+            var mockAcquirer = new Mock<SpectrumAcquirer>("COM1", 9600, new SpectrumParser());
+            // Use TestableSpectrumManager by subscribing to the event.
+            var manager = new SpectrumManager(mockAcquirer.Object);
 
-            Dictionary<double, double>? receivedData = null;
-            double? receivedAverage = null;
-            double? receivedSnr = null;
-            double? receivedQuality = null;
+            Dictionary<double, double> uiSpectrum = null;
+            double avg = 0, snr = 0, quality = 0;
+            void UpdateUi(Dictionary<double, double> dict) => uiSpectrum = dict;
+            void UpdateSpectrumInfo(double a, double s, double q)
+            {
+                avg = a;
+                snr = s;
+                quality = q;
+            }
 
-            manager.StartAcquisition(
-                updateUi: dict => receivedData = dict,
-                updateSpectrumInfo: (avg, snr, quality) =>
-                {
-                    receivedAverage = avg;
-                    receivedSnr = snr;
-                    receivedQuality = quality;
-                }
-            );
+            // Prepare a dummy DataStruct with known spectrum data.
+            var spectrumLength = 2048;
+            var dataStruct = new DataStruct(spectrumLength)
+            {
+                Average = 123,
+                Snr = 234,
+                Quality = 345
+            };
+            // Fill spectrum with a known pattern.
+            for (var i = 0; i < spectrumLength; i++)
+                dataStruct.Spectrum[i] = (ushort)i;
+
+            // Capture the SpectrumReceived delegate.
+            Action<DataStruct> capturedHandler = null;
+            mockAcquirer.SetupAdd(a => a.SpectrumReceived += It.IsAny<Action<DataStruct>>())
+                        .Callback<Action<DataStruct>>(handler => capturedHandler = handler);
 
             // Act
-            var testMessage = GenerateTestMessage();
-            fakeAcquirer.SimulateMessage(testMessage);
-            Task.Delay(100).Wait();
+            manager.StartAcquisition(UpdateUi, UpdateSpectrumInfo);
+            // Simulate event firing.
+            capturedHandler?.Invoke(dataStruct);
 
-            // Assert
-            Assert.IsNotNull(receivedData);
-
-            var expectedLength = MessageStruct1.SpectrumLength / 2;
-            Assert.AreEqual(expectedLength, receivedData!.Count);
-
-            // Check first and last wavelength-intensity pairs
-            var firstPair = receivedData.First();
-            var lastPair = receivedData.Last();
-
-            Assert.AreEqual(SpectrumCalc.WaveLength(0, 1), firstPair.Key);
-            Assert.AreEqual(1.0, firstPair.Value);
-
-            Assert.AreEqual(SpectrumCalc.WaveLength(expectedLength - 1, 1), lastPair.Key);
-            Assert.AreEqual(expectedLength, lastPair.Value);
-
-            manager.StopAcquisition();
+            // Assert: Verify callbacks were called and processed data.
+            Assert.IsNotNull(uiSpectrum);
+            // Check one sample from UI dictionary (wavelength calculated via SpectrumCalc.WaveLength)
+            // Так как вычисление длины волны зависит от спектрометра, проверим, что количество элементов совпадает.
+            Assert.AreEqual(spectrumLength, uiSpectrum.Count);
+            Assert.AreEqual(123, avg);
+            Assert.AreEqual(234, snr);
+            Assert.AreEqual(345, quality);
         }
 
         [TestMethod]
-        public void FlipInvertFlag_InvertsSpectrumData()
+        public void FlipInvertFlag_InvertsSpectrumValues()
         {
-            var fakeAcquirer = new FakeUartSpectrumAcquirer();
-            var acquirerWrapper = new FakeAcquirerWrapper(fakeAcquirer);
-            var manager = new SpectrumManager(acquirerWrapper);
+            // Arrange
+            var mockAcquirer = new Mock<SpectrumAcquirer>("COM1", 9600, new SpectrumParser());
+            var manager = new SpectrumManager(mockAcquirer.Object);
 
-            Dictionary<double, double>? receivedDataNormal = null;
-            Dictionary<double, double>? receivedDataInverted = null;
+            Dictionary<double, double> uiSpectrum = null;
+            void UpdateUi(Dictionary<double, double> dict) => uiSpectrum = dict;
+            void UpdateSpectrumInfo(double a, double s, double q) { /* no-op */ }
 
-            manager.StartAcquisition(
-                updateUi: dict => receivedDataNormal = dict,
-                updateSpectrumInfo: (average, snr, quality) =>
-                {
-                    /* Ignored for this test */
-                }
-            );
-            var testMessage = GenerateTestMessage();
-            fakeAcquirer.SimulateMessage(testMessage);
-            Task.Delay(100).Wait();
-            manager.StopAcquisition();
+            var spectrumLength = 4;
+            var dataStruct = new DataStruct(spectrumLength)
+            {
+                Average = 0,
+                Snr = 0,
+                Quality = 0
+            };
+            // Set spectrum values.
+            dataStruct.Spectrum[0] = 10;
+            dataStruct.Spectrum[1] = 20;
+            dataStruct.Spectrum[2] = 30;
+            dataStruct.Spectrum[3] = 40;
 
+            // Subscribe to event.
+            Action<DataStruct> capturedHandler = null;
+            mockAcquirer.SetupAdd(a => a.SpectrumReceived += It.IsAny<Action<DataStruct>>())
+                        .Callback<Action<DataStruct>>(handler => capturedHandler = handler);
+
+            // Act: Start acquisition without inversion.
+            manager.StartAcquisition(UpdateUi, UpdateSpectrumInfo);
+            capturedHandler?.Invoke(dataStruct);
+
+            // Capture original values.
+            var original = uiSpectrum.Values.ToArray();
+
+            // Act: Enable inversion.
             manager.FlipInvertFlag();
-            manager.StartAcquisition(
-                updateUi: dict => receivedDataInverted = dict,
-                updateSpectrumInfo: (average, snr, quality) =>
-                {
-                    /* Ignored for this test */
-                }
-            );
-            fakeAcquirer.SimulateMessage(testMessage);
-            Task.Delay(100).Wait();
-            manager.StopAcquisition();
+            uiSpectrum = null;
+            // For inversion, maximum value is 40 so inverted: 30,20,10,0.
+            capturedHandler?.Invoke(dataStruct);
+            var inverted = uiSpectrum.Values.ToArray();
 
-            Assert.IsNotNull(receivedDataNormal);
-            Assert.IsNotNull(receivedDataInverted);
-
-            var normalFirst = receivedDataNormal!.FirstOrDefault().Value;
-            var invertedFirst = receivedDataInverted!.FirstOrDefault().Value;
-
-            var actualMax = receivedDataNormal.Values.Max();
-            var expectedNormalFirst = receivedDataNormal.Values.Min();
-            var expectedInvertedFirst = actualMax - expectedNormalFirst;
-
-            Assert.AreEqual(expectedNormalFirst, normalFirst);
-            Assert.AreEqual(expectedInvertedFirst, invertedFirst);
+            // Assert: Check that inversion was applied.
+            Assert.AreEqual(4, original.Length);
+            Assert.AreEqual(4, inverted.Length);
+            Assert.AreEqual(40 - 10, inverted[0]);
+            Assert.AreEqual(40 - 20, inverted[1]);
+            Assert.AreEqual(40 - 30, inverted[2]);
+            Assert.AreEqual(40 - 40, inverted[3]);
         }
     }
 }

@@ -46,7 +46,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
         }
 
-        private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        protected void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             try
             {
@@ -54,11 +54,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 var receivedBytes = new byte[bytesToRead];
                 _serialPort.Read(receivedBytes, 0, bytesToRead);
 
+                // Append data from serial port to buffer
                 lock (_bufferLock)
                 {
-                    // Append data to MemoryStream
                     _buffer.Write(receivedBytes, 0, bytesToRead);
                 }
+
                 ProcessBuffer();
             }
             catch (Exception ex)
@@ -67,97 +68,140 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
         }
 
+        /// <summary>
+        /// Main loop for extracting and processing complete messages from the internal buffer.
+        /// </summary>
         protected virtual void ProcessBuffer()
         {
-            // Define header length constant
-            const int headerLength = 10;
             while (true)
             {
                 byte[] messageBytes;
-                int expectedLength = 0;
-                int headerPosition = -1;
+                byte[] expectedFooter;
 
+                // Try to extract a complete message from the buffer inside lock for thread-safety.
                 lock (_bufferLock)
                 {
-                    var bufferArray = _buffer.ToArray();
-                    // Requires at least headerLength bytes to search for the header
-                    if (bufferArray.Length < headerLength)
+                    if (!TryExtractMessage(out messageBytes, out expectedFooter))
                         break;
-
-                    // Optimize the search for the header using Span<byte>
-                    var bufferSpan = bufferArray.AsSpan();
-                    
-                    headerPosition = FindHeader(bufferSpan, MessageStruct1.SpectrumDelimiter);
-                    
-                    if (headerPosition >= 0)
-                    {
-                        expectedLength = MessageStruct1.TotalMessageLength;
-                    }
-                    else
-                    {
-                        headerPosition = FindHeader(bufferSpan, MessageStruct2.SpectrumDelimiter);
-                        
-                        if (headerPosition >= 0)
-                        {
-                            expectedLength = MessageStruct2.TotalMessageLength;
-                        }
-                    }
-
-                    if (headerPosition == -1)
-                    {
-                        // Save the last part of the buffer as it may contain the header
-                        var keepLength = Math.Min(headerLength, bufferArray.Length);
-                        var newBuffer = new byte[keepLength];
-                        Array.Copy(bufferArray, bufferArray.Length - keepLength, newBuffer, 0, keepLength);
-                        _buffer.SetLength(0);
-                        _buffer.Write(newBuffer, 0, keepLength);
-                        break;
-                    }
-
-                    // Drop the bytes before the header
-                    if (headerPosition > 0)
-                    {
-                        var remaining = bufferArray.Length - headerPosition;
-                        var newBuffer = new byte[remaining];
-                        Array.Copy(bufferArray, headerPosition, newBuffer, 0, remaining);
-                        _buffer.SetLength(0);
-                        _buffer.Write(newBuffer, 0, remaining);
-                        bufferArray = newBuffer;
-                        bufferSpan = bufferArray.AsSpan();
-                    }
-
-                    // Check if we have enough bytes for the expected message length
-                    if (bufferArray.Length < expectedLength)
-                        break;
-
-                    messageBytes = new byte[expectedLength];
-                    Array.Copy(bufferArray, 0, messageBytes, 0, expectedLength);
-                    // Remove the processed message from the buffer
-                    var leftoverLength = bufferArray.Length - expectedLength;
-                    var leftover = new byte[leftoverLength];
-                    Array.Copy(bufferArray, expectedLength, leftover, 0, leftoverLength);
-                    _buffer.SetLength(0);
-                    _buffer.Write(leftover, 0, leftoverLength);
                 }
 
-                EventHandler.Log($" [INFO] Header found. Message length: {messageBytes.Length}.");
+                // Validate message footer outside lock.
+                if (!ValidateFooter(messageBytes, expectedFooter))
+                {
+                    EventHandler.Log(" [ERROR] Invalid footer detected. Dropping message.");
+                    continue;
+                }
+
+                EventHandler.Log($" [INFO] Valid message received. Length: {messageBytes.Length}.");
                 ProcessMessage(messageBytes);
             }
         }
 
-        // Efficient header search using Span<byte>
+        /// <summary>
+        /// Attempts to extract the next complete message from the internal buffer.
+        /// If no valid header is found, trims the buffer to preserve potential header fragments.
+        /// </summary>
+        private bool TryExtractMessage(out byte[] messageBytes, out byte[] expectedFooter)
+        {
+            const int headerSize = 10;
+            messageBytes = null;
+            expectedFooter = null;
+
+            var data = _buffer.ToArray();
+            if (data.Length < headerSize)
+                return false;
+
+            // Check for MessageStruct1 header
+            int headerPos = FindHeader(data.AsSpan(), MessageStruct1.SpectrumHeader);
+            if (headerPos >= 0)
+            {
+                expectedFooter = MessageStruct1.SpectrumFooter;
+                return ExtractMessage(data, headerPos, MessageStruct1.TotalMessageLength, out messageBytes);
+            }
+
+            // Check for MessageStruct2 header
+            headerPos = FindHeader(data.AsSpan(), MessageStruct2.SpectrumHeader);
+            if (headerPos >= 0)
+            {
+                expectedFooter = MessageStruct2.SpectrumFooter;
+                return ExtractMessage(data, headerPos, MessageStruct2.TotalMessageLength, out messageBytes);
+            }
+
+            // No valid header found; keep only the last few bytes that may contain a partial header.
+            int keep = Math.Min(headerSize, data.Length);
+            UpdateBuffer(data.AsSpan(data.Length - keep, keep).ToArray());
+            return false;
+        }
+
+        /// <summary>
+        /// Extracts a complete message from the provided data starting at the header position.
+        /// Updates the internal buffer with any leftover data.
+        /// </summary>
+        private bool ExtractMessage(byte[] data, int headerPos, int expectedLength, out byte[] messageBytes)
+        {
+            messageBytes = null;
+
+            // Remove any bytes before the header.
+            if (headerPos > 0)
+            {
+                data = data.AsSpan(headerPos).ToArray();
+                UpdateBuffer(data);
+            }
+
+            // Wait for more data if complete message is not yet received.
+            if (data.Length < expectedLength)
+                return false;
+
+            // Extract complete message.
+            messageBytes = new byte[expectedLength];
+            Array.Copy(data, 0, messageBytes, 0, expectedLength);
+
+            // Update the buffer with leftover bytes.
+            int leftoverLength = data.Length - expectedLength;
+            var leftover = new byte[leftoverLength];
+            Array.Copy(data, expectedLength, leftover, 0, leftoverLength);
+            UpdateBuffer(leftover);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Replaces the internal buffer with the specified data.
+        /// </summary>
+        private void UpdateBuffer(byte[] data)
+        {
+            _buffer.SetLength(0);
+            _buffer.Write(data, 0, data.Length);
+        }
+
+        /// <summary>
+        /// Searches for the specified header in the given buffer using Span for efficiency.
+        /// </summary>
         private int FindHeader(ReadOnlySpan<byte> buffer, byte[] header)
         {
             for (var i = 0; i <= buffer.Length - header.Length; i++)
             {
                 if (buffer.Slice(i, header.Length).SequenceEqual(header))
-                {
                     return i;
-                }
             }
             return -1;
         }
 
+        /// <summary>
+        /// Validates that the message ends with the expected footer bytes.
+        /// </summary>
+        private bool ValidateFooter(byte[] messageBytes, byte[] expectedFooter)
+        {
+            if (messageBytes.Length < expectedFooter.Length)
+                return false;
+
+            int footerStart = messageBytes.Length - expectedFooter.Length;
+            return messageBytes.AsSpan(footerStart, expectedFooter.Length).SequenceEqual(expectedFooter);
+        }
+
+        /// <summary>
+        /// Processes a valid message by parsing it and invoking the SpectrumReceived event.
+        /// </summary>
         private void ProcessMessage(byte[] messageBytes)
         {
             try

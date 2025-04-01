@@ -43,9 +43,9 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                         data.Spectrum[i] = AggregateTwoBytesFromPos(message, offset);
                     }
 
-                    data.Average = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumAveragePos);
-                    data.Snr = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumSnrPos);
-                    data.Quality = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumQualityPos);
+                    data.Average = AggregateTwoBytesFromPos(message, MessageStruct1.SpectrumAveragePos);
+                    data.Snr = AggregateTwoBytesFromPos(message, MessageStruct1.SpectrumSnrPos);
+                    data.Quality = AggregateTwoBytesFromPos(message, MessageStruct1.SpectrumQualityPos);
                     break;
 
                 case MessageStruct2.TotalMessageLength:

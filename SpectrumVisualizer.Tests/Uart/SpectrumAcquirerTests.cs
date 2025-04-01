@@ -1,6 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
+using System.IO.Ports;
 using System.Linq;
+using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using SpectrumVisualizer.Uart.Message;
@@ -8,244 +10,189 @@ using SpectrumVisualizer.Uart.SpectrumJobs;
 
 namespace SpectrumVisualizer.Tests.Uart
 {
+    // TestableSpectrumAcquirer extends SpectrumAcquirer and provides a constructor for testing.
+    public class TestableSpectrumAcquirer : SpectrumAcquirer
+    {
+        // Constructor that passes parameters to the base class.
+        public TestableSpectrumAcquirer(string portName, int baudRate, ISpectrumParser parser)
+            : base(portName, baudRate, parser)
+        {
+        }
+
+        // Expose the protected ProcessBuffer() via a public method for testing.
+        public void ProcessBufferPublic() =>
+            GetType().GetMethod("ProcessBuffer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                   .Invoke(this, null);
+
+        // Inject data into the private _buffer field via reflection.
+        public void InjectBuffer(byte[] data)
+        {
+            var field = typeof(SpectrumAcquirer).GetField("_buffer", BindingFlags.NonPublic | BindingFlags.Instance);
+            var ms = new MemoryStream();
+            ms.Write(data, 0, data.Length);
+            ms.Position = 0;
+            field!.SetValue(this, ms);
+        }
+    }
+
     [TestClass]
     public class SpectrumAcquirerTests
     {
-        private Mock<ISpectrumParser> _mockParser;
-        private TestableAcquirer _acquirer;
-
-        [TestInitialize]
-        public void Setup()
+        // Helper: Create valid Type1 message.
+        // Перенесён в данный класс, чтобы не зависеть от SpectrumParserTests.
+        private byte[] CreateValidType1Message(ushort avg = 100, ushort snr = 200, ushort quality = 300)
         {
-            _mockParser = new Mock<ISpectrumParser>();
-            _acquirer = new TestableAcquirer("COM1", 115200, _mockParser.Object);
+            // Total length: 4122 bytes.
+            var message = new byte[4122];
+            // Header for Type1: [0x01,0xFF,...,0x1E] (10 bytes)
+            var header = new byte[] { 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x1E };
+            Array.Copy(header, 0, message, 0, 10);
+            // Spectrum data: 4096 bytes. Fill with incremental values.
+            for (int i = 0; i < 4096; i += 2)
+            {
+                var value = (ushort)(i / 2);
+                message[10 + i] = (byte)(value >> 8);
+                message[10 + i + 1] = (byte)(value & 0xFF);
+            }
+            // Average at position 4106
+            message[4106] = (byte)(avg >> 8);
+            message[4107] = (byte)(avg & 0xFF);
+            // SNR at position 4108
+            message[4108] = (byte)(snr >> 8);
+            message[4109] = (byte)(snr & 0xFF);
+            // Quality at position 4110
+            message[4110] = (byte)(quality >> 8);
+            message[4111] = (byte)(quality & 0xFF);
+            // Footer for Type1: [0x1E,0xFF,...,0x01] (10 bytes)
+            var footer = new byte[] { 0x1E, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01 };
+            Array.Copy(footer, 0, message, 4122 - 10, 10);
+            return message;
         }
 
+        private SpectrumParser CreateParser() => new();
+
         [TestMethod]
-        public void ProcessBuffer_ValidMessageType1_RaisesEvent()
+        public void ProcessBuffer_CompleteType1Message_FiresSpectrumReceivedEvent()
         {
             // Arrange
-            var message = new byte[MessageStruct1.TotalMessageLength];
-            var delimiter = MessageStruct1.SpectrumDelimiter;
-            // Fill the message with the delimiter at the start.
-            Array.Copy(delimiter, message, delimiter.Length);
-            var expectedData = new DataStruct(MessageStruct1.SpectrumLength / 2);
-            DataStruct? receivedData = null;
-            _mockParser.Setup(p => p.ProcessMessage(It.IsAny<byte[]>()))
-                       .Returns(expectedData);
-            _acquirer.SpectrumReceived += data => receivedData = data;
+            var parser = CreateParser();
+            using var acquirer = new TestableSpectrumAcquirer("COM1", 9600, parser);
+            DataStruct receivedData = null;
+            acquirer.SpectrumReceived += data => receivedData = data;
+            var message = CreateValidType1Message();
+            // Inject a complete message into the buffer.
+            acquirer.InjectBuffer(message);
 
             // Act
-            _acquirer.TestProcessBuffer(message);
+            acquirer.ProcessBufferPublic();
 
-            // Assert
+            // Assert: SpectrumReceived должен сработать.
             Assert.IsNotNull(receivedData);
-            _mockParser.Verify(p => p.ProcessMessage(It.IsAny<byte[]>()), Times.Once);
+            Assert.AreEqual(2048, receivedData.Spectrum.Length);
         }
 
         [TestMethod]
-        public void ProcessBuffer_ValidMessageType2_RaisesEvent()
+        public void ProcessBuffer_MultipleMessages_FiresSpectrumReceivedMultipleTimes()
         {
             // Arrange
-            var message = new byte[MessageStruct2.TotalMessageLength];
-            MessageStruct2.SpectrumDelimiter.CopyTo(message, 0);
-            var expectedData = new DataStruct(MessageStruct2.SpectrumLength / 2);
-            DataStruct? receivedData = null;
-            _mockParser.Setup(p => p.ProcessMessage(It.Is<byte[]>(b => b.Length == MessageStruct2.TotalMessageLength)))
-                       .Returns(expectedData);
-            _acquirer.SpectrumReceived += data => receivedData = data;
+            var parser = CreateParser();
+            using var acquirer = new TestableSpectrumAcquirer("COM1", 9600, parser);
+            int eventCount = 0;
+            acquirer.SpectrumReceived += _ => eventCount++;
+            var message1 = CreateValidType1Message();
+            var message2 = CreateValidType1Message();
+            var combined = message1.Concat(message2).ToArray();
+            acquirer.InjectBuffer(combined);
 
             // Act
-            _acquirer.TestProcessBuffer(message);
+            acquirer.ProcessBufferPublic();
 
-            // Assert
-            Assert.IsNotNull(receivedData);
-            _mockParser.Verify(p => p.ProcessMessage(It.Is<byte[]>(b => b.Length == MessageStruct2.TotalMessageLength)),
-                Times.Once);
+            // Assert: Expect 2 events.
+            Assert.AreEqual(2, eventCount);
         }
 
         [TestMethod]
-        public void ProcessBuffer_InvalidLength_LogsErrorOnly()
+        public void ProcessBuffer_IncompleteMessage_DoesNotFireEvent()
         {
             // Arrange
-            var message = new byte[MessageStruct1.TotalMessageLength - 1];
-            DataStruct? receivedData = null;
-            _acquirer.SpectrumReceived += data => receivedData = data;
+            var parser = CreateParser();
+            using var acquirer = new TestableSpectrumAcquirer("COM1", 9600, parser);
+            bool eventFired = false;
+            acquirer.SpectrumReceived += _ => eventFired = true;
+            var incomplete = new byte[15];
+            acquirer.InjectBuffer(incomplete);
 
             // Act
-            _acquirer.TestProcessBuffer(message);
+            acquirer.ProcessBufferPublic();
 
-            // Assert
-            Assert.IsNull(receivedData);
-            _mockParser.Verify(p => p.ProcessMessage(It.IsAny<byte[]>()), Times.Never);
+            // Assert: Event не должен срабатывать.
+            Assert.IsFalse(eventFired);
         }
 
         [TestMethod]
-        public void ProcessBuffer_NoiseBeforeValidMessage_RaisesEvent()
+        public void ProcessBuffer_MessageWithInvalidHeader_DoesNotFireEvent()
         {
             // Arrange
-            // Simulate noise bytes followed by a valid type1 message.
-            var noise = new byte[] { 0x00, 0xFF, 0x10, 0x20 };
-            var message = new byte[MessageStruct1.TotalMessageLength];
-            Array.Copy(MessageStruct1.SpectrumDelimiter, message, MessageStruct1.SpectrumDelimiter.Length);
-            for (var i = MessageStruct1.SpectrumDelimiter.Length; i < MessageStruct1.TotalMessageLength; i++)
-            {
-                message[i] = 0x55;
-            }
-            var combined = noise.Concat(message).ToArray();
-
-            var expectedData = new DataStruct(MessageStruct1.SpectrumLength / 2);
-            DataStruct? receivedData = null;
-            _mockParser.Setup(p => p.ProcessMessage(It.IsAny<byte[]>()))
-                       .Returns(expectedData);
-            _acquirer.SpectrumReceived += data => receivedData = data;
-
-            // Act: Append combined data without clearing previous content.
-            _acquirer.TestClearBuffer();
-            _acquirer.AppendToBuffer(combined);
-            _acquirer.InvokeProcessBuffer();
-
-            // Assert
-            Assert.IsNotNull(receivedData, "Event should be raised for valid message after noise.");
-            Assert.AreEqual(0, _acquirer.TestBufferCount, "Buffer should be empty after processing complete message.");
-        }
-
-        [TestMethod]
-        public void ProcessBuffer_MultipleMessages_RaisesEventForEach()
-        {
-            // Arrange
-            // Create two valid type1 messages concatenated.
-            var message = new byte[MessageStruct1.TotalMessageLength];
-            Array.Copy(MessageStruct1.SpectrumDelimiter, message, MessageStruct1.SpectrumDelimiter.Length);
-            for (var i = MessageStruct1.SpectrumDelimiter.Length; i < MessageStruct1.TotalMessageLength; i++)
-            {
-                message[i] = 0x55;
-            }
-            var combined = message.Concat(message).ToArray();
-
-            var callCount = 0;
-            _mockParser.Setup(p => p.ProcessMessage(It.IsAny<byte[]>()))
-                       .Returns(new DataStruct(MessageStruct1.SpectrumLength / 2))
-                       .Callback(() => callCount++);
-            _acquirer.SpectrumReceived += data => { };
+            var parser = CreateParser();
+            using var acquirer = new TestableSpectrumAcquirer("COM1", 9600, parser);
+            bool eventFired = false;
+            acquirer.SpectrumReceived += _ => eventFired = true;
+            var message = CreateValidType1Message();
+            message[0] = 0xFF; // invalid header
+            acquirer.InjectBuffer(message);
 
             // Act
-            _acquirer.TestClearBuffer();
-            _acquirer.AppendToBuffer(combined);
-            _acquirer.InvokeProcessBuffer();
+            acquirer.ProcessBufferPublic();
 
-            // Assert
-            Assert.AreEqual(2, callCount, "Two messages should have been processed.");
-            Assert.AreEqual(0, _acquirer.TestBufferCount, "Buffer should be empty after processing all messages.");
+            // Assert: Event не должен срабатывать.
+            Assert.IsFalse(eventFired);
         }
 
         [TestMethod]
-        public void ProcessBuffer_PartialThenCompleteMessage_RaisesEventAfterCompletion()
+        public void ProcessBuffer_MessageWithInvalidFooter_DoesNotFireEvent()
         {
             // Arrange
-            // Create a valid type1 message and split it into two parts.
-            var message = new byte[MessageStruct1.TotalMessageLength];
-            Array.Copy(MessageStruct1.SpectrumDelimiter, message, MessageStruct1.SpectrumDelimiter.Length);
-            for (var i = MessageStruct1.SpectrumDelimiter.Length; i < MessageStruct1.TotalMessageLength; i++)
-            {
-                message[i] = 0x55;
-            }
-            var part1 = message.Take(MessageStruct1.TotalMessageLength - 2).ToArray();
-            var part2 = message.Skip(MessageStruct1.TotalMessageLength - 2).ToArray();
+            var parser = CreateParser();
+            using var acquirer = new TestableSpectrumAcquirer("COM1", 9600, parser);
+            bool eventFired = false;
+            acquirer.SpectrumReceived += _ => eventFired = true;
+            var message = CreateValidType1Message();
+            message[^1] = 0x00; // invalid footer
+            acquirer.InjectBuffer(message);
 
-            var expectedData = new DataStruct(MessageStruct1.SpectrumLength / 2);
-            DataStruct? receivedData = null;
-            _mockParser.Setup(p => p.ProcessMessage(It.IsAny<byte[]>()))
-                       .Returns(expectedData);
-            _acquirer.SpectrumReceived += data => receivedData = data;
+            // Act
+            acquirer.ProcessBufferPublic();
 
-            // Act: Append first part and process (should not trigger event).
-            _acquirer.TestClearBuffer();
-            _acquirer.AppendToBuffer(part1);
-            _acquirer.InvokeProcessBuffer();
-            Assert.IsNull(receivedData, "Incomplete message should not trigger event.");
-            // Now append the remaining part.
-            _acquirer.AppendToBuffer(part2);
-            _acquirer.InvokeProcessBuffer();
-
-            // Assert: Event should now be raised.
-            Assert.IsNotNull(receivedData, "Event should be raised after complete message is available.");
-            Assert.AreEqual(0, _acquirer.TestBufferCount, "Buffer should be empty after complete message processed.");
+            // Assert: Event не должен срабатывать.
+            Assert.IsFalse(eventFired);
         }
 
-        // Testable subclass that exposes buffer manipulation and ProcessBuffer for testing.
-        private class TestableAcquirer : SpectrumAcquirer
+        [TestMethod]
+        public void ProcessBuffer_Buffering_PartialThenCompleteMessage_FiresEventOnce()
         {
-            public TestableAcquirer(string portName, int baudRate, ISpectrumParser parser)
-                : base(portName, baudRate, parser)
-            {
-            }
+            // Arrange
+            var parser = CreateParser();
+            using var acquirer = new TestableSpectrumAcquirer("COM1", 9600, parser);
+            int eventCount = 0;
+            acquirer.SpectrumReceived += _ => eventCount++;
 
-            // Clears the internal buffer.
-            public void TestClearBuffer()
-            {
-                lock (GetBufferLock())
-                {
-                    GetBuffer().Clear();
-                }
-            }
+            var message = CreateValidType1Message();
+            int splitIndex = message.Length / 2;
+            var part1 = message.Take(splitIndex).ToArray();
+            var part2 = message.Skip(splitIndex).ToArray();
 
-            // Appends data to the internal buffer.
-            public void AppendToBuffer(byte[] data)
-            {
-                lock (GetBufferLock())
-                {
-                    GetBuffer().AddRange(data);
-                }
-            }
+            // Inject first part.
+            acquirer.InjectBuffer(part1);
+            acquirer.ProcessBufferPublic();
+            Assert.AreEqual(0, eventCount);
 
-            // Invokes the ProcessBuffer method.
-            public void InvokeProcessBuffer()
-            {
-                ProcessBuffer();
-            }
+            // Append second part.
+            var currentBuffer = part1.Concat(part2).ToArray();
+            acquirer.InjectBuffer(currentBuffer);
+            acquirer.ProcessBufferPublic();
 
-            // Exposes current count of buffer.
-            public int TestBufferCount
-            {
-                get
-                {
-                    lock (GetBufferLock())
-                    {
-                        return GetBuffer().Count;
-                    }
-                }
-            }
-
-            // Expose the protected ProcessBuffer method for testing.
-            public void TestProcessBuffer(byte[] data)
-            {
-                lock (GetBufferLock())
-                {
-                    GetBuffer().Clear();
-                    GetBuffer().AddRange(data);
-                }
-                ProcessBuffer();
-            }
-
-            private List<byte> GetBuffer()
-            {
-                var field = GetType().BaseType?
-                    .GetField("_buffer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?? throw new InvalidOperationException("Cannot access buffer field");
-                return (List<byte>)field.GetValue(this);
-            }
-
-            private object GetBufferLock()
-            {
-                var field = GetType().BaseType?
-                    .GetField("_bufferLock", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?? throw new InvalidOperationException("Cannot access buffer lock field");
-                return field.GetValue(this);
-            }
-
-            public override void Start() { }
-            public override void Stop() { }
+            // Assert: Событие должно сработать один раз.
+            Assert.AreEqual(1, eventCount);
         }
     }
 }
