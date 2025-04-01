@@ -1,4 +1,6 @@
-﻿namespace SpectrumVisualizer.Uart.SpectrumJobs
+﻿using SpectrumVisualizer.Uart.Message;
+
+namespace SpectrumVisualizer.Uart.SpectrumJobs
 {
     /// <summary>
     /// Manages spectrum acquisition and basic processing.
@@ -39,7 +41,7 @@
                 var dict = new Dictionary<double, double>();
 
                 // Clarifying spectrometer type depending on spectrum length 1 for 2048, 2 for 512
-                var spectrometerType = data.Spectrum.Length == 2048 ? 1 : 2;
+                var spectrometerType = data.Spectrum.Length == MessageStruct1.SpectrumLength / 2 ? 1 : 2;
 
                 for (var i = 0; i < data.Spectrum.Length; i++)
                 {

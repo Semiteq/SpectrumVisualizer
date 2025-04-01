@@ -3,19 +3,13 @@ using SpectrumVisualizer.Uart.Message;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
 {
-    /// <summary>
-    /// Acquires UART data from the COM port.
-    /// Accumulates received bytes until a complete message (of fixed length) is available,
-    /// then uses ISpectrumParser to extract and combine the spectrum data.
-    /// </summary>
     public class SpectrumAcquirer : IDisposable
     {
         private readonly SerialPort _serialPort;
         private readonly ISpectrumParser _parser;
-        private readonly List<byte> _buffer = new();
-        private readonly object _bufferLock = new();
+        private readonly MemoryStream _buffer = new();
+        private readonly Lock _bufferLock = new();
 
-        // Event raised when a complete spectrum is available.
         public virtual event Action<DataStruct>? SpectrumReceived;
 
         public SpectrumAcquirer(string portName, int baudRate, ISpectrumParser parser)
@@ -29,9 +23,6 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             _serialPort.DataReceived += SerialPort_DataReceived;
         }
 
-        /// <summary>
-        /// Opens the serial port and starts acquisition.
-        /// </summary>
         public virtual void Start()
         {
             try
@@ -41,27 +32,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                     _serialPort.Open();
                 }
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                EventHandler.Log(new Exception("Access to the COM port is denied.", ex));
-            }
-            catch (IOException ex)
-            {
-                EventHandler.Log(new Exception("Error accessing the COM port.", ex));
-            }
-            catch (InvalidOperationException ex)
-            {
-                EventHandler.Log(new Exception("Attempted to open an already open COM port.", ex));
-            }
             catch (Exception ex)
             {
                 EventHandler.Log(ex);
             }
         }
 
-        /// <summary>
-        /// Stops acquisition by closing the serial port.
-        /// </summary>
         public virtual void Stop()
         {
             if (_serialPort.IsOpen)
@@ -78,10 +54,10 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 var receivedBytes = new byte[bytesToRead];
                 _serialPort.Read(receivedBytes, 0, bytesToRead);
 
-                // Synchronize access to the buffer.
                 lock (_bufferLock)
                 {
-                    _buffer.AddRange(receivedBytes);
+                    // Append data to MemoryStream
+                    _buffer.Write(receivedBytes, 0, bytesToRead);
                 }
                 ProcessBuffer();
             }
@@ -91,79 +67,97 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
         }
 
-        /// <summary>
-        /// Processes the accumulated buffer to extract complete messages.
-        /// It scans for valid headers and removes extraneous bytes before the header.
-        /// </summary>
         protected virtual void ProcessBuffer()
         {
+            // Define header length constant
+            const int headerLength = 10;
             while (true)
             {
-                byte[] messageBytes = null;
+                byte[] messageBytes;
                 int expectedLength = 0;
-                bool headerFound = false;
-                int headerIndex = -1;
+                int headerPosition = -1;
 
                 lock (_bufferLock)
                 {
-                    // Need at least 4 bytes to identify a header.
-                    if (_buffer.Count < 4)
+                    var bufferArray = _buffer.ToArray();
+                    // Requires at least headerLength bytes to search for the header
+                    if (bufferArray.Length < headerLength)
                         break;
 
-                    // Scan for a valid header in the buffer.
-                    for (var i = 0; i <= _buffer.Count - 4; i++)
+                    // Optimize the search for the header using Span<byte>
+                    var bufferSpan = bufferArray.AsSpan();
+                    
+                    headerPosition = FindHeader(bufferSpan, MessageStruct1.SpectrumDelimiter);
+                    
+                    if (headerPosition >= 0)
                     {
-                        var potentialHeader = _buffer.GetRange(i, 4).ToArray();
-                        if (AreArraysEqual(potentialHeader, MessageStruct1.SpectrumDelimiter))
-                        {
-                            expectedLength = MessageStruct1.TotalMessageLength;
-                            headerFound = true;
-                            headerIndex = i;
-                            break;
-                        }
-                        else if (AreArraysEqual(potentialHeader, MessageStruct2.SpectrumDelimiter))
+                        expectedLength = MessageStruct1.TotalMessageLength;
+                    }
+                    else
+                    {
+                        headerPosition = FindHeader(bufferSpan, MessageStruct2.SpectrumDelimiter);
+                        
+                        if (headerPosition >= 0)
                         {
                             expectedLength = MessageStruct2.TotalMessageLength;
-                            headerFound = true;
-                            headerIndex = i;
-                            break;
                         }
                     }
 
-                    if (!headerFound)
+                    if (headerPosition == -1)
                     {
-                        // No valid header found.
-                        // Remove all bytes except the last 3 (which may be the start of a header).
-                        var removeCount = _buffer.Count - 3;
-                        _buffer.RemoveRange(0, removeCount);
+                        // Save the last part of the buffer as it may contain the header
+                        var keepLength = Math.Min(headerLength, bufferArray.Length);
+                        var newBuffer = new byte[keepLength];
+                        Array.Copy(bufferArray, bufferArray.Length - keepLength, newBuffer, 0, keepLength);
+                        _buffer.SetLength(0);
+                        _buffer.Write(newBuffer, 0, keepLength);
                         break;
                     }
 
-                    // Discard any extraneous bytes before the header.
-                    if (headerIndex > 0)
+                    // Drop the bytes before the header
+                    if (headerPosition > 0)
                     {
-                        _buffer.RemoveRange(0, headerIndex);
+                        var remaining = bufferArray.Length - headerPosition;
+                        var newBuffer = new byte[remaining];
+                        Array.Copy(bufferArray, headerPosition, newBuffer, 0, remaining);
+                        _buffer.SetLength(0);
+                        _buffer.Write(newBuffer, 0, remaining);
+                        bufferArray = newBuffer;
+                        bufferSpan = bufferArray.AsSpan();
                     }
 
-                    // Check if we have a complete message.
-                    if (_buffer.Count < expectedLength)
+                    // Check if we have enough bytes for the expected message length
+                    if (bufferArray.Length < expectedLength)
                         break;
 
-                    // Extract complete message.
-                    messageBytes = _buffer.GetRange(0, expectedLength).ToArray();
-                    _buffer.RemoveRange(0, expectedLength);
+                    messageBytes = new byte[expectedLength];
+                    Array.Copy(bufferArray, 0, messageBytes, 0, expectedLength);
+                    // Remove the processed message from the buffer
+                    var leftoverLength = bufferArray.Length - expectedLength;
+                    var leftover = new byte[leftoverLength];
+                    Array.Copy(bufferArray, expectedLength, leftover, 0, leftoverLength);
+                    _buffer.SetLength(0);
+                    _buffer.Write(leftover, 0, leftoverLength);
                 }
 
-                // Log message details (optional).
-                //ErrorHandler.Log($"Message length: {messageBytes.Length}. Start 4 bytes: {BitConverter.ToString(messageBytes.Take(4).ToArray())}, End 4 bytes: {BitConverter.ToString(messageBytes.Skip(messageBytes.Length - 4).ToArray())}");
+                EventHandler.Log($" [INFO] Header found. Message length: {messageBytes.Length}.");
                 ProcessMessage(messageBytes);
             }
         }
 
-        /// <summary>
-        /// Processes a complete message by parsing it and invoking the SpectrumReceived event.
-        /// </summary>
-        /// <param name="messageBytes">Complete message bytes</param>
+        // Efficient header search using Span<byte>
+        private int FindHeader(ReadOnlySpan<byte> buffer, byte[] header)
+        {
+            for (var i = 0; i <= buffer.Length - header.Length; i++)
+            {
+                if (buffer.Slice(i, header.Length).SequenceEqual(header))
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         private void ProcessMessage(byte[] messageBytes)
         {
             try
@@ -175,24 +169,6 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             {
                 EventHandler.Log(ex);
             }
-        }
-
-        /// <summary>
-        /// Compares two byte arrays for equality.
-        /// </summary>
-        /// <param name="a1">First array</param>
-        /// <param name="a2">Second array</param>
-        /// <returns>True if arrays are equal, false otherwise</returns>
-        private bool AreArraysEqual(byte[] a1, byte[] a2)
-        {
-            if (a1.Length != a2.Length)
-                return false;
-            for (var i = 0; i < a1.Length; i++)
-            {
-                if (a1[i] != a2[i])
-                    return false;
-            }
-            return true;
         }
 
         public void Dispose()

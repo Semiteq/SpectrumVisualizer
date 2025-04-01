@@ -40,12 +40,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                     {
                         // Each point occupies 2 bytes
                         var offset = MessageStruct1.SpectrumPos + i * 2;
-                        data.Spectrum[i] = BitConverter.ToUInt16(message, offset);
+                        data.Spectrum[i] = AggregateTwoBytesFromPos(message, offset);
                     }
 
-                    data.Average = BitConverter.ToUInt16(message, MessageStruct1.SpectrumAveragePos);
-                    data.Snr = BitConverter.ToUInt16(message, MessageStruct1.SpectrumSnrPos);
-                    data.Quality = BitConverter.ToUInt16(message, MessageStruct1.SpectrumQualityPos);
+                    data.Average = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumAveragePos);
+                    data.Snr = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumSnrPos);
+                    data.Quality = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumQualityPos);
                     break;
 
                 case MessageStruct2.TotalMessageLength:
@@ -56,12 +56,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                     {
                         // Use SpectrumPos from the second message struct
                         var offset = MessageStruct2.SpectrumPos + i * 2;
-                        data.Spectrum[i] = BitConverter.ToUInt16(message, offset);
+                        data.Spectrum[i] = AggregateTwoBytesFromPos(message, offset);
                     }
 
-                    data.Average = BitConverter.ToUInt16(message, MessageStruct2.SpectrumAveragePos);
-                    data.Snr = BitConverter.ToUInt16(message, MessageStruct2.SpectrumSnrPos);
-                    data.Quality = BitConverter.ToUInt16(message, MessageStruct2.SpectrumQualityPos);
+                    data.Average = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumAveragePos);
+                    data.Snr = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumSnrPos);
+                    data.Quality = AggregateTwoBytesFromPos(message, MessageStruct2.SpectrumQualityPos);
                     break;
 
                 default:
@@ -69,6 +69,11 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                     return new DataStruct(0);
             }
             return data;
+        }
+        
+        private static ushort AggregateTwoBytesFromPos(byte [] message, int pos)
+        {
+            return (ushort)((message[pos] << 8) | message[pos + 1]);
         }
     }
 
