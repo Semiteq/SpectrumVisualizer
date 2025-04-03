@@ -1,6 +1,8 @@
 ﻿using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using OxyPlot.Annotations;
+using HorizontalAlignment = OxyPlot.HorizontalAlignment;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
 {
@@ -13,9 +15,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         private const string SpectrumWavelengthAxisTitle = "Wavelength [nm]";
         private const string SpectrumIntensityAxisTitle = "Intensity";
         private const string SpectrumLogIntensityAxisTitle = "Intensity (Log)";
-        
+        private const string SpectrumLastUpdateLabelFormat = "Last update: {0:HH:mm:ss.fff}";
+
         private readonly PlotModel _plotModel;
         private readonly LineSeries _spectrumSeries;
+        private readonly TextAnnotation _lastUpdateAnnotation;
+        private DateTime _lastUpdateTime;
         private bool _isResetNeeded;
         private bool _isStickToZeroNeeded;
 
@@ -23,8 +28,16 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         {
             _plotModel = CreatePlotModel();
             _spectrumSeries = CreateSpectrumSeries();
-            
+            _lastUpdateAnnotation = new TextAnnotation
+            {
+                TextPosition = new DataPoint(0, 0),
+                TextHorizontalAlignment = HorizontalAlignment.Left,
+                TextVerticalAlignment = VerticalAlignment.Top,
+                Text = string.Format(SpectrumLastUpdateLabelFormat, DateTime.Now)
+            };
+
             _plotModel.Series.Add(_spectrumSeries);
+            _plotModel.Annotations.Add(_lastUpdateAnnotation);
             InitializeAxes();
         }
 
@@ -34,6 +47,9 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         public void UpdateData(Dictionary<double, double> data)
         {
             if (data is null) return;
+
+            _lastUpdateTime = DateTime.Now;
+            _lastUpdateAnnotation.Text = string.Format(SpectrumLastUpdateLabelFormat, _lastUpdateTime);
 
             UpdateSpectrumPoints(data);
 
@@ -65,42 +81,42 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
 
         public PlotModel GetPlotModel() => _plotModel;
 
-        private static PlotModel CreatePlotModel() => 
+        private static PlotModel CreatePlotModel() =>
             new() { Title = SpectrumDefaultTitle };
 
-        private static LineSeries CreateSpectrumSeries() => 
+        private static LineSeries CreateSpectrumSeries() =>
             new() { MarkerType = MarkerType.None };
 
         private void InitializeAxes()
         {
-            _plotModel.Axes.Add(new LinearAxis 
-            { 
-                Position = AxisPosition.Bottom, 
-                Title = SpectrumWavelengthAxisTitle 
+            _plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = SpectrumWavelengthAxisTitle
             });
-            
+
             _plotModel.Axes.Add(CreateYAxis(false));
         }
 
-        private static Axis CreateYAxis(bool isLogarithmic) => 
+        private static Axis CreateYAxis(bool isLogarithmic) =>
             isLogarithmic
-                ? new LogarithmicAxis 
-                { 
-                    Position = AxisPosition.Left, 
-                    Title = SpectrumLogIntensityAxisTitle, 
-                    Base = 10 
+                ? new LogarithmicAxis
+                {
+                    Position = AxisPosition.Left,
+                    Title = SpectrumLogIntensityAxisTitle,
+                    Base = 10
                 }
-                : new LinearAxis 
-                { 
-                    Position = AxisPosition.Left, 
-                    Title = SpectrumIntensityAxisTitle 
+                : new LinearAxis
+                {
+                    Position = AxisPosition.Left,
+                    Title = SpectrumIntensityAxisTitle
                 };
 
         private void UpdateSpectrumPoints(Dictionary<double, double> data)
         {
             var sorted = data.OrderBy(pair => pair.Key).ToArray();
             _spectrumSeries.Points.Clear();
-            
+
             foreach (var pair in sorted)
             {
                 _spectrumSeries.Points.Add(new DataPoint(pair.Key, pair.Value));
@@ -128,6 +144,14 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                         break;
                 }
             }
+
+            // Update the last update annotation position
+            var xAxis = _plotModel.Axes.First(a => a.Position == AxisPosition.Bottom);
+            var yAxis = _plotModel.Axes.First(a => a.Position == AxisPosition.Left);
+            _lastUpdateAnnotation.TextPosition = new DataPoint(
+                xAxis.ActualMinimum + (xAxis.ActualMaximum - xAxis.ActualMinimum) * 0.02,
+                yAxis.ActualMaximum - (yAxis.ActualMaximum - yAxis.ActualMinimum) * 0.02
+            );
         }
     }
 }

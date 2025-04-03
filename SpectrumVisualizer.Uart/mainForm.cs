@@ -1,79 +1,87 @@
+﻿// MainForm.cs
 using System.IO.Ports;
 using SpectrumVisualizer.Uart.Device;
 using SpectrumVisualizer.Uart.SpectrumJobs;
+using Timer = System.Threading.Timer;
 
 namespace SpectrumVisualizer.Uart
 {
-    /// <summary>
-    /// The main form of the Spectrum Visualizer application.
-    /// Handles UI interactions, device connection, spectrum acquisition, and display.
-    /// </summary>
     public partial class MainForm : Form
     {
-        private readonly DeviceManager _deviceManager;         // Manages device connection/disconnection via UART.
-        private SpectrumManager _spectrumManager;                // Manages spectrum acquisition and analysis.
-        private SpectrumPainter _spectrumPainter;                // Handles spectrum visualization via OxyPlot.
+        private readonly DeviceManager _deviceManager; // Manages device connection/disconnection via SerialPortStream.
+        private SpectrumManager _spectrumManager;       // Manages spectrum acquisition and analysis.
+        private SpectrumPainter _spectrumPainter;       // Handles spectrum visualization via OxyPlot.
+        private readonly Timer _statusTimer;            // Timer to check connection and update COM port list.
 
+        private bool _isConnecting;
         public MainForm()
         {
             InitializeComponent();
 
+            // Set logging UI element (если требуется, иначе можно удалить)
             EventHandler.LoggingBox = loggingBox;
 
-            // Invert flag toggling for display (inversion is applied in SpectrumManager)
-            checkBoxInvertData.CheckedChanged += (s, e) => _spectrumManager.FlipInvertFlag();
-
-            buttonResetScale.Click += (s, e) => _spectrumPainter.ResetPlotScale();
-            buttonStickToZero.Click += (s, e) => _spectrumPainter.StickToZero();
-            checkBoxLogScale.CheckedChanged += (s, e) => _spectrumPainter.ToggleLogarithmicYAxis(checkBoxLogScale.Checked);
+            // Setup UI controls event handlers
+            checkBoxInvertData.CheckedChanged += (s, e) => _spectrumManager?.FlipInvertFlag();
+            buttonResetScale.Click += (s, e) => _spectrumPainter?.ResetPlotScale();
+            buttonStickToZero.Click += (s, e) => _spectrumPainter?.StickToZero();
+            checkBoxLogScale.CheckedChanged += (s, e) => _spectrumPainter?.ToggleLogarithmicYAxis(checkBoxLogScale.Checked);
             buttonClearLog.Click += (s, e) => loggingBox.Items.Clear();
 
             _deviceManager = new DeviceManager();
+
+            // Timer fires every 1 second; callback posts work to UI thread.
+            _statusTimer = new Timer(CheckDeviceStatus, null, 0, 1000);
+
+            btnDisconnect.Enabled = false;
         }
 
-        private async void Form1_Load(object sender, EventArgs e)
+        private void Form1_Load(object sender, EventArgs e)
         {
-            await RepopulateComAndTryConnect();
+            RepopulateCom();
         }
 
-        /// <summary>
-        /// Populates COM port dropdown, selects the first port, and attempts to connect.
-        /// </summary>
-        private async Task RepopulateComAndTryConnect()
+        private void RepopulateCom()
         {
             var coms = SerialPort.GetPortNames();
+            comboBoxCom.Items.Clear();
             comboBoxCom.Items.AddRange(coms);
             if (comboBoxCom.Items.Count > 0)
-            {
                 comboBoxCom.SelectedIndex = 0;
-                await TryConnectAsync();
-            }
         }
 
         /// <summary>
-        /// Attempts to connect to the device asynchronously using the selected COM port.
+        /// Attempts to connect to the device using the selected COM port.
+        /// If a previous device is connected, it will be disconnected first.
         /// </summary>
         private async Task TryConnectAsync()
         {
-            if (comboBoxCom.SelectedItem == null) return;
+            if (comboBoxCom.SelectedItem == null)
+                return;
 
             var portName = comboBoxCom.SelectedItem.ToString();
-            if (string.IsNullOrEmpty(portName)) return;
+            if (string.IsNullOrEmpty(portName))
+                return;
+
+            if (_deviceManager.IsConnected)
+            {
+                StopSpectrumAcquisition();
+                await _deviceManager.DisconnectAsync();
+            }
 
             if (await _deviceManager.ConnectAsync(portName))
             {
                 StartSpectrumAcquisition();
-                EventHandler.Log($"Connected to {portName}");
+                groupBoxDeviceInfo.Text = $"Current Device: {portName}";
+                btnConnect.Enabled = false;
+                btnDisconnect.Enabled = true;
             }
             else
             {
-                EventHandler.Log($"Failed to connect to {portName}");
+                groupBoxDeviceInfo.Text = "Current Device:";
             }
         }
 
-        /// <summary>
-        /// Starts the spectrum acquisition process and sets up visualization.
-        /// </summary>
         private void StartSpectrumAcquisition()
         {
             _spectrumPainter = new SpectrumPainter();
@@ -100,9 +108,6 @@ namespace SpectrumVisualizer.Uart
             );
         }
 
-        /// <summary>
-        /// Stops the spectrum acquisition process.
-        /// </summary>
         private void StopSpectrumAcquisition()
         {
             _spectrumManager?.StopAcquisition();
@@ -110,6 +115,7 @@ namespace SpectrumVisualizer.Uart
 
         protected override async void OnFormClosing(FormClosingEventArgs e)
         {
+            await _statusTimer.DisposeAsync();
             await _deviceManager.DisconnectAsync();
             StopSpectrumAcquisition();
             base.OnFormClosing(e);
@@ -117,36 +123,115 @@ namespace SpectrumVisualizer.Uart
 
         private void comboBoxCom_Click(object sender, EventArgs e)
         {
+            // Refresh COM port list while preserving current selection if available.
             var currentSelection = comboBoxCom.SelectedItem?.ToString();
+            var ports = SerialPort.GetPortNames();
             comboBoxCom.Items.Clear();
-            comboBoxCom.Items.AddRange(SerialPort.GetPortNames());
-
-            // Don't trigger selection change if selecting the same port
-            comboBoxCom.SelectedIndexChanged -= comboBoxCom_SelectedIndexChanged;
+            comboBoxCom.Items.AddRange(ports);
             if (currentSelection != null && comboBoxCom.Items.Contains(currentSelection))
-            {
                 comboBoxCom.SelectedItem = currentSelection;
-            }
             else if (comboBoxCom.Items.Count > 0)
-            {
                 comboBoxCom.SelectedIndex = 0;
-            }
-            comboBoxCom.SelectedIndexChanged += comboBoxCom_SelectedIndexChanged;
         }
 
-        private async void comboBoxCom_SelectedIndexChanged(object sender, EventArgs e)
+        private async void btnConnect_Click(object sender, EventArgs e)
         {
-            if (comboBoxCom.SelectedItem == null) return;
+            if (_isConnecting || comboBoxCom.SelectedItem == null)
+                return;
 
             try
             {
-                await _deviceManager.DisconnectAsync();
-                StopSpectrumAcquisition();
+                _isConnecting = true;
+                btnConnect.Enabled = false;
                 await TryConnectAsync();
             }
             catch (Exception ex)
             {
-                EventHandler.Log($"Error connecting to {comboBoxCom.SelectedItem}: {ex.Message}");
+                EventHandler.Log($"Error connecting: {ex.Message}");
+            }
+            finally
+            {
+                _isConnecting = false;
+                if (!_deviceManager.IsConnected)
+                {
+                    btnConnect.Enabled = true;
+                }
+            }
+        }
+
+        private async void btnDisconnect_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                await _deviceManager.DisconnectAsync();
+                StopSpectrumAcquisition();
+                groupBoxDeviceInfo.Text = "Current Device:";
+                btnConnect.Enabled = true;
+                btnDisconnect.Enabled = false;
+            }
+            catch (Exception ex)
+            {
+                EventHandler.Log($"Error disconnecting: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Timer callback that posts work to the UI thread.
+        /// </summary>
+        private void CheckDeviceStatus(object? state)
+        {
+            if (!IsHandleCreated)
+                return;
+
+            BeginInvoke(new Action(CheckDeviceStatusUI));
+        }
+
+        /// <summary>
+        /// Checks the device status and updates the COM port dropdown.
+        /// Removes COM ports that are no longer available.
+        /// </summary>
+        private async void CheckDeviceStatusUI()
+        {
+            try
+            {
+                var availablePorts = SerialPort.GetPortNames();
+                var currentPort = _deviceManager.Acquirer?.SerialPort?.PortName;
+
+                // If the device is connected and the current port is not in the available ports,
+                if (_deviceManager.IsConnected &&
+                   (currentPort == null || !availablePorts.Contains(currentPort)))
+                {
+                    StopSpectrumAcquisition();
+                    await _deviceManager.DisconnectAsync();
+                    groupBoxDeviceInfo.Text = "Current Device:";
+                    btnConnect.Enabled = true;
+                    btnDisconnect.Enabled = false;
+                }
+
+                // Update the COM port list in the dropdown.
+                var currentItems = comboBoxCom.Items.Cast<string>().ToList();
+
+                // If the current port is not in the available ports, remove it from the list.
+                if (!currentItems.SequenceEqual(availablePorts))
+                {
+                    comboBoxCom.Text = "";
+                    comboBoxCom.Items.Clear();
+                    comboBoxCom.Items.AddRange(availablePorts);
+
+                    // If the current port is still available, select it; otherwise, select the first available port.
+                    if (comboBoxCom.Items.Contains(currentPort))
+                    {
+                        comboBoxCom.SelectedItem = currentPort;
+                    }
+                    else if (comboBoxCom.Items.Count > 0)
+                    {
+                        comboBoxCom.SelectedIndex = 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                EventHandler.Log($"Error in status check: {ex.Message}");
             }
         }
     }

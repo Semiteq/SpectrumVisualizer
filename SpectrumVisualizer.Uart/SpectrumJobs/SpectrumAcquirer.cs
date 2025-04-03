@@ -1,70 +1,160 @@
-﻿using System.IO.Ports;
+﻿using RJCP.IO.Ports;
 using SpectrumVisualizer.Uart.Message;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
 {
     public class SpectrumAcquirer : IDisposable
     {
-        private readonly SerialPort _serialPort;
+        private readonly SerialPortStream _serialPort;
         private readonly ISpectrumParser _parser;
         private readonly MemoryStream _buffer = new();
-        private readonly Lock _bufferLock = new();
+        private readonly object _bufferLock = new();
+        private bool _isDisposed;
 
         public virtual event Action<DataStruct>? SpectrumReceived;
+
+        public bool IsOpen => _serialPort?.IsOpen ?? false;
+        public SerialPortStream SerialPort => _serialPort;
 
         public SpectrumAcquirer(string portName, int baudRate, ISpectrumParser parser)
         {
             _parser = parser;
-            _serialPort = new SerialPort(portName, baudRate)
+            _serialPort = new SerialPortStream(portName, baudRate)
             {
                 ReadTimeout = 500,
-                WriteTimeout = 500
+                WriteTimeout = 500,
+                RtsEnable = true,
+                DtrEnable = true,
+                DiscardNull = false,
+                ReadBufferSize = 4096,
+                WriteBufferSize = 4096
             };
+            _serialPort.ErrorReceived += (_, e) =>
+            {
+                EventHandler.Log($"Serial port error: {e.EventType}");
+                if (e.EventType == SerialError.Frame || 
+                    e.EventType == SerialError.RXOver)
+                {
+                    HandleSerialError();
+                }
+            };
+        
             _serialPort.DataReceived += SerialPort_DataReceived;
         }
 
-        public virtual void Start()
+        private void HandleSerialError()
         {
             try
             {
-                if (!_serialPort.IsOpen)
+                if (_serialPort.IsOpen)
                 {
+                    _serialPort.Close();
+                    // Wait a bit before reopening
+                    Task.Delay(100).Wait();
                     _serialPort.Open();
                 }
             }
             catch (Exception ex)
             {
-                EventHandler.Log(ex);
+                EventHandler.Log($"Error handling serial error: {ex.Message}");
+            }
+        }
+        
+        public virtual void Start()
+        {
+            if (_isDisposed)
+                throw new ObjectDisposedException(nameof(SpectrumAcquirer));
+
+            try
+            {
+                if (!_serialPort.IsOpen)
+                {
+                    // Check if the port exists
+                    if (!SerialPortStream.GetPortNames().Contains(_serialPort.PortName))
+                    {
+                        throw new IOException($"Port {_serialPort.PortName} does not exist");
+                    }
+
+                    // Try to open the port with retries
+                    var retryCount = 3;
+                    while (retryCount > 0)
+                    {
+                        try
+                        {
+                            _serialPort.Open();
+                            break;
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            retryCount--;
+                            if (retryCount == 0) throw;
+                            Task.Delay(100).Wait();
+                        }
+                    }
+
+                    if (!_serialPort.IsOpen)
+                    {
+                        throw new IOException($"Failed to open port {_serialPort.PortName}");
+                    }
+
+                    // Reset the buffers
+                    _serialPort.DiscardInBuffer();
+                    _serialPort.DiscardOutBuffer();
+                }
+            }
+            catch (Exception ex)
+            {
+                EventHandler.Log($"Error opening port: {ex.Message}");
+                throw;
             }
         }
 
         public virtual void Stop()
         {
-            if (_serialPort.IsOpen)
-            {
-                _serialPort.Close();
-            }
-        }
+            if (_isDisposed)
+                return;
 
-        protected void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
-        {
             try
             {
-                var bytesToRead = _serialPort.BytesToRead;
-                var receivedBytes = new byte[bytesToRead];
-                _serialPort.Read(receivedBytes, 0, bytesToRead);
-
-                // Append data from serial port to buffer
-                lock (_bufferLock)
+                if (_serialPort.IsOpen)
                 {
-                    _buffer.Write(receivedBytes, 0, bytesToRead);
+                    _serialPort.DiscardInBuffer();
+                    _serialPort.DiscardOutBuffer();
+                    _serialPort.Close();
                 }
-
-                ProcessBuffer();
             }
             catch (Exception ex)
             {
-                EventHandler.Log(ex);
+                EventHandler.Log($"Error closing port: {ex.Message}");
+                throw;
+            }
+        }
+
+        private async void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            if (_isDisposed) return;
+
+            try
+            {
+                var buffer = new byte[_serialPort.BytesToRead];
+                int bytesRead = await _serialPort.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+
+                if (bytesRead > 0)
+                {
+                    lock (_bufferLock)
+                    {
+                        _buffer.Write(buffer.AsSpan(0, bytesRead));
+                    }
+                    ProcessBuffer();
+                }
+            }
+            catch (Exception ex)
+            {
+                EventHandler.Log($"Error reading data: {ex.Message}");
+                if (!_serialPort.IsOpen)
+                {
+                    EventHandler.Log("Serial port was closed unexpectedly");
+                }
             }
         }
 
@@ -85,14 +175,12 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                         break;
                 }
 
-                // Validate message footer outside lock.
                 if (!ValidateFooter(messageBytes, expectedFooter))
                 {
-                    EventHandler.Log(" [ERROR] Invalid footer detected. Dropping message.");
+                    EventHandler.Log("Invalid message footer detected");
                     continue;
                 }
 
-                EventHandler.Log($" [INFO] Valid message received. Length: {messageBytes.Length}.");
                 ProcessMessage(messageBytes);
             }
         }
@@ -126,7 +214,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 expectedFooter = MessageStruct2.SpectrumFooter;
                 return ExtractMessage(data, headerPos, MessageStruct2.TotalMessageLength, out messageBytes);
             }
-
+            
             // No valid header found; keep only the last few bytes that may contain a partial header.
             int keep = Math.Min(headerSize, data.Length);
             UpdateBuffer(data.AsSpan(data.Length - keep, keep).ToArray());
@@ -153,13 +241,10 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 return false;
 
             // Extract complete message.
-            messageBytes = new byte[expectedLength];
-            Array.Copy(data, 0, messageBytes, 0, expectedLength);
+            messageBytes = data.AsSpan(0, expectedLength).ToArray();
 
             // Update the buffer with leftover bytes.
-            int leftoverLength = data.Length - expectedLength;
-            var leftover = new byte[leftoverLength];
-            Array.Copy(data, expectedLength, leftover, 0, leftoverLength);
+            var leftover = data.AsSpan(expectedLength).ToArray();
             UpdateBuffer(leftover);
 
             return true;
@@ -177,7 +262,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         /// <summary>
         /// Searches for the specified header in the given buffer using Span for efficiency.
         /// </summary>
-        private int FindHeader(ReadOnlySpan<byte> buffer, byte[] header)
+        private static int FindHeader(ReadOnlySpan<byte> buffer, byte[] header)
         {
             for (var i = 0; i <= buffer.Length - header.Length; i++)
             {
@@ -190,13 +275,13 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         /// <summary>
         /// Validates that the message ends with the expected footer bytes.
         /// </summary>
-        private bool ValidateFooter(byte[] messageBytes, byte[] expectedFooter)
+        private static bool ValidateFooter(byte[] messageBytes, byte[] expectedFooter)
         {
             if (messageBytes.Length < expectedFooter.Length)
                 return false;
 
-            int footerStart = messageBytes.Length - expectedFooter.Length;
-            return messageBytes.AsSpan(footerStart, expectedFooter.Length).SequenceEqual(expectedFooter);
+            return messageBytes.AsSpan(messageBytes.Length - expectedFooter.Length)
+                             .SequenceEqual(expectedFooter);
         }
 
         /// <summary>
@@ -211,17 +296,21 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
             }
             catch (Exception ex)
             {
-                EventHandler.Log(ex);
+                EventHandler.Log($"Error processing message: {ex.Message}");
             }
         }
 
         public void Dispose()
         {
+            if (_isDisposed) return;
+            
+            _isDisposed = true;
             if (_serialPort.IsOpen)
-                _serialPort.Close();
-
-            _serialPort.DataReceived -= SerialPort_DataReceived;
+            {
+                Stop();
+            }
             _serialPort.Dispose();
+            _buffer.Dispose();
         }
     }
 }
