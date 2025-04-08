@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "SpectrumVisualizer"
-#define MyAppVersion "2.0.2"
+#define MyAppVersion "2.0.4"
 #define MyAppPublisher "Semiteq, Inc."
 #define MyAppURL "semiteq.ru"
 #define MyAppExeName "SpectrumVisualizer.Uart.exe"
@@ -17,11 +17,11 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 UninstallDisplayIcon={app}\icon.ico
-SetupIconFile=C:\Users\admin\git\SpectrumVisualizer\SpectrumVisualizer.Uart\icon.ico
+SetupIconFile=C:\Users\admin\Projects\git\SpectrumVisualizer\SpectrumVisualizer.Uart\icon.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-OutputBaseFilename=mysetup
+OutputBaseFilename=SpectrumVisualizerInstaller
 SolidCompression=yes
 WizardStyle=modern
 
@@ -32,9 +32,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\admin\git\SpectrumVisualizer\SpectrumVisualizer.Uart\bin\Release\net9.0-windows\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\admin\git\SpectrumVisualizer\SpectrumVisualizer.Uart\bin\Release\net9.0-windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\admin\git\SpectrumVisualizer\SpectrumVisualizer.Uart\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
+Source: "C:\Users\admin\Projects\git\SpectrumVisualizer\SpectrumVisualizer.Uart\bin\Release\net9.0-windows\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\admin\Projects\git\SpectrumVisualizer\SpectrumVisualizer.Uart\bin\Release\net9.0-windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\admin\Projects\git\SpectrumVisualizer\SpectrumVisualizer.Uart\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"

@@ -72,13 +72,13 @@ namespace SpectrumVisualizer.Uart
             if (await _deviceManager.ConnectAsync(portName))
             {
                 StartSpectrumAcquisition();
-                groupBoxDeviceInfo.Text = $"Current Device: {portName}";
+                groupBoxDeviceInfo.Text = $"Текущее устройство: {portName}";
                 btnConnect.Enabled = false;
                 btnDisconnect.Enabled = true;
             }
             else
             {
-                groupBoxDeviceInfo.Text = "Current Device:";
+                groupBoxDeviceInfo.Text = "Текущее устройство:";
             }
         }
 
@@ -100,9 +100,9 @@ namespace SpectrumVisualizer.Uart
                 {
                     Invoke((Action)(() =>
                     {
-                        labelSignalAverage.Text = $"Average: {average:F2}";
-                        labelSNR.Text = $"SNR: {snr:F2}";
-                        labelQFactor.Text = $"Quality: {quality:F2}";
+                        labelSignalAverage.Text = $"Среднее значение: {(average is >= 0 and <= 10 ? $"{average:F0}" : $"{average:F2}")}";
+                        labelSNR.Text = $"Отношение сигнал/шум: {(snr is >= 0 and <= 10 ? $"{snr:F0}" : $"{snr:F2}")} дБ";
+                        labelQFactor.Text = $"Добротность: {(quality is >= 0 and <= 10 ? $"{quality:F0}" : $"{quality:F2}")}";
                     }));
                 }
             );
@@ -165,7 +165,7 @@ namespace SpectrumVisualizer.Uart
             {
                 await _deviceManager.DisconnectAsync();
                 StopSpectrumAcquisition();
-                groupBoxDeviceInfo.Text = "Current Device:";
+                groupBoxDeviceInfo.Text = "Текущее устройство:";
                 btnConnect.Enabled = true;
                 btnDisconnect.Enabled = false;
             }
@@ -203,7 +203,7 @@ namespace SpectrumVisualizer.Uart
                 {
                     StopSpectrumAcquisition();
                     await _deviceManager.DisconnectAsync();
-                    groupBoxDeviceInfo.Text = "Current Device:";
+                    groupBoxDeviceInfo.Text = "Текущее устройство:";
                     btnConnect.Enabled = true;
                     btnDisconnect.Enabled = false;
                 }

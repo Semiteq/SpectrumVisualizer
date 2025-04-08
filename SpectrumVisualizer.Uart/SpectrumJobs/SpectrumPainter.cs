@@ -1,7 +1,7 @@
 ﻿using OxyPlot;
+using OxyPlot.Annotations;
 using OxyPlot.Axes;
 using OxyPlot.Series;
-using OxyPlot.Annotations;
 using HorizontalAlignment = OxyPlot.HorizontalAlignment;
 
 namespace SpectrumVisualizer.Uart.SpectrumJobs
@@ -11,11 +11,16 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
     /// </summary>
     public class SpectrumPainter
     {
-        private const string SpectrumDefaultTitle = "Spectrum";
-        private const string SpectrumWavelengthAxisTitle = "Wavelength [nm]";
-        private const string SpectrumIntensityAxisTitle = "Intensity";
-        private const string SpectrumLogIntensityAxisTitle = "Intensity (Log)";
-        private const string SpectrumLastUpdateLabelFormat = "Last update: {0:HH:mm:ss.fff}";
+        // Magic numbers
+        private const double AnnotationMargin = 20.0;     // Margin in pixels for annotation from the PlotArea top-left corner.
+        private const double XAxisMarginRatio = 0.05;       // Margin ratio for X axis.
+        private const double YAxisMarginRatio = 0.2;        // Margin ratio for Y axis.
+
+        private const string SpectrumDefaultTitle = "Спектр";
+        private const string SpectrumWavelengthAxisTitle = "Длина волны [нм]";
+        private const string SpectrumIntensityAxisTitle = "Интенсивность";
+        private const string SpectrumLogIntensityAxisTitle = "Интенсивность (Log)";
+        private const string SpectrumLastUpdateLabelFormat = "Последнее обновление: {0:HH:mm:ss.fff}";
 
         private readonly PlotModel _plotModel;
         private readonly LineSeries _spectrumSeries;
@@ -27,12 +32,17 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
         public SpectrumPainter()
         {
             _plotModel = CreatePlotModel();
+
+            // Subscribe to plot updates to recalc annotation position relative to PlotArea.
+            _plotModel.Updated += (sender, e) => UpdateAnnotationScreenPosition();
+
             _spectrumSeries = CreateSpectrumSeries();
             _lastUpdateAnnotation = new TextAnnotation
             {
-                TextPosition = new DataPoint(0, 0),
                 TextHorizontalAlignment = HorizontalAlignment.Left,
                 TextVerticalAlignment = VerticalAlignment.Top,
+                // Initial position will be updated in the Updated event.
+                TextPosition = new DataPoint(0, 0),
                 Text = string.Format(SpectrumLastUpdateLabelFormat, DateTime.Now)
             };
 
@@ -65,6 +75,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 _isStickToZeroNeeded = false;
             }
 
+            // Invalidate plot will trigger the Updated event and recalc annotation position.
             _plotModel.InvalidatePlot(true);
         }
 
@@ -125,9 +136,7 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
 
         private void AdjustAxesRange()
         {
-            const double xMargin = 0.05;
-            const double yMargin = 0.2;
-
+            // Using magic numbers extracted to constants
             var xMin = _spectrumSeries.Points.Min(p => p.X);
             var xMax = _spectrumSeries.Points.Max(p => p.X);
             var yMax = _spectrumSeries.Points.Max(p => p.Y);
@@ -137,21 +146,39 @@ namespace SpectrumVisualizer.Uart.SpectrumJobs
                 switch (axis.Position)
                 {
                     case AxisPosition.Bottom:
-                        axis.Zoom(xMin * (1 - xMargin), xMax * (1 + xMargin));
+                        axis.Zoom(xMin * (1 - XAxisMarginRatio), xMax * (1 + XAxisMarginRatio));
                         break;
                     case AxisPosition.Left:
-                        axis.Zoom(0, yMax * (1 + yMargin));
+                        axis.Zoom(0, yMax * (1 + YAxisMarginRatio));
                         break;
                 }
             }
+        }
 
-            // Update the last update annotation position
+        /// <summary>
+        /// Updates annotation position to be fixed relative to the PlotArea.
+        /// </summary>
+        private void UpdateAnnotationScreenPosition()
+        {
+            // Get current PlotArea (in screen coordinates)
+            var plotArea = _plotModel.PlotArea;
+            if (plotArea.Width <= 0 || plotArea.Height <= 0)
+            {
+                // PlotArea not set yet, skip update.
+                return;
+            }
+
+            // Fixed margin from the top-left corner (in pixels)
+            var desiredScreenPoint = new ScreenPoint(plotArea.Left + AnnotationMargin, plotArea.Top + AnnotationMargin);
+
             var xAxis = _plotModel.Axes.First(a => a.Position == AxisPosition.Bottom);
             var yAxis = _plotModel.Axes.First(a => a.Position == AxisPosition.Left);
-            _lastUpdateAnnotation.TextPosition = new DataPoint(
-                xAxis.ActualMinimum + (xAxis.ActualMaximum - xAxis.ActualMinimum) * 0.02,
-                yAxis.ActualMaximum - (yAxis.ActualMaximum - yAxis.ActualMinimum) * 0.02
-            );
+
+            // Transform screen coordinates to data coordinates using respective axis transformations.
+            var dataX = xAxis.InverseTransform(desiredScreenPoint.X);
+            var dataY = yAxis.InverseTransform(desiredScreenPoint.Y);
+
+            _lastUpdateAnnotation.TextPosition = new DataPoint(dataX, dataY);
         }
     }
 }

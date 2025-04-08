@@ -49,14 +49,14 @@
             comboBoxCom.FormattingEnabled = true;
             comboBoxCom.Location = new Point(74, 17);
             comboBoxCom.Name = "comboBoxCom";
-            comboBoxCom.Size = new Size(69, 23);
+            comboBoxCom.Size = new Size(144, 23);
             comboBoxCom.TabIndex = 0;
             comboBoxCom.Click += comboBoxCom_Click;
             // 
             // plotView
             // 
             plotView.BackColor = SystemColors.ControlLightLight;
-            plotView.Location = new Point(161, 12);
+            plotView.Location = new Point(237, 12);
             plotView.Name = "plotView";
             plotView.PanCursor = Cursors.Hand;
             plotView.Size = new Size(1050, 600);
@@ -72,26 +72,26 @@
             loggingBox.HorizontalScrollbar = true;
             loggingBox.Location = new Point(6, 618);
             loggingBox.Name = "loggingBox";
-            loggingBox.Size = new Size(1205, 64);
+            loggingBox.Size = new Size(1281, 64);
             loggingBox.TabIndex = 8;
             // 
             // labelLog
             // 
             labelLog.AutoSize = true;
-            labelLog.Location = new Point(6, 597);
+            labelLog.Location = new Point(6, 567);
             labelLog.Name = "labelLog";
-            labelLog.Size = new Size(35, 15);
+            labelLog.Size = new Size(76, 15);
             labelLog.TabIndex = 9;
-            labelLog.Text = "Logs:";
+            labelLog.Text = "Сообщения:";
             // 
             // labelComPort
             // 
             labelComPort.AutoSize = true;
             labelComPort.Location = new Point(6, 20);
             labelComPort.Name = "labelComPort";
-            labelComPort.Size = new Size(65, 15);
+            labelComPort.Size = new Size(69, 15);
             labelComPort.TabIndex = 12;
-            labelComPort.Text = "COM-port:";
+            labelComPort.Text = "COM-порт:";
             // 
             // labelSignalAverage
             // 
@@ -99,17 +99,17 @@
             labelSignalAverage.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 204);
             labelSignalAverage.Location = new Point(6, 20);
             labelSignalAverage.Name = "labelSignalAverage";
-            labelSignalAverage.Size = new Size(90, 15);
+            labelSignalAverage.Size = new Size(117, 15);
             labelSignalAverage.TabIndex = 13;
-            labelSignalAverage.Text = "Average Signal";
+            labelSignalAverage.Text = "Среднее значение:";
             // 
             // buttonClearLog
             // 
-            buttonClearLog.Location = new Point(80, 590);
+            buttonClearLog.Location = new Point(6, 585);
             buttonClearLog.Name = "buttonClearLog";
-            buttonClearLog.Size = new Size(75, 27);
+            buttonClearLog.Size = new Size(225, 27);
             buttonClearLog.TabIndex = 14;
-            buttonClearLog.Text = "Clear log";
+            buttonClearLog.Text = "Отчистить историю сообщений";
             buttonClearLog.UseVisualStyleBackColor = true;
             // 
             // groupBoxSignalAnalize
@@ -119,10 +119,10 @@
             groupBoxSignalAnalize.Controls.Add(labelSignalAverage);
             groupBoxSignalAnalize.Location = new Point(6, 91);
             groupBoxSignalAnalize.Name = "groupBoxSignalAnalize";
-            groupBoxSignalAnalize.Size = new Size(149, 92);
+            groupBoxSignalAnalize.Size = new Size(225, 92);
             groupBoxSignalAnalize.TabIndex = 17;
             groupBoxSignalAnalize.TabStop = false;
-            groupBoxSignalAnalize.Text = "Signal Analize";
+            groupBoxSignalAnalize.Text = "Информация о сигнале:";
             // 
             // labelSNR
             // 
@@ -130,9 +130,9 @@
             labelSNR.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 204);
             labelSNR.Location = new Point(6, 45);
             labelSNR.Name = "labelSNR";
-            labelSNR.Size = new Size(31, 15);
+            labelSNR.Size = new Size(149, 15);
             labelSNR.TabIndex = 17;
-            labelSNR.Text = "SNR";
+            labelSNR.Text = "Отношение сигнал/шум:";
             // 
             // labelQFactor
             // 
@@ -140,9 +140,9 @@
             labelQFactor.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 204);
             labelQFactor.Location = new Point(6, 70);
             labelQFactor.Name = "labelQFactor";
-            labelQFactor.Size = new Size(55, 15);
+            labelQFactor.Size = new Size(84, 15);
             labelQFactor.TabIndex = 16;
-            labelQFactor.Text = "Q-factor";
+            labelQFactor.Text = "Добротность:";
             // 
             // groupBoxPlotSettings
             // 
@@ -152,27 +152,27 @@
             groupBoxPlotSettings.Controls.Add(checkBoxInvertData);
             groupBoxPlotSettings.Location = new Point(6, 187);
             groupBoxPlotSettings.Name = "groupBoxPlotSettings";
-            groupBoxPlotSettings.Size = new Size(149, 124);
+            groupBoxPlotSettings.Size = new Size(225, 130);
             groupBoxPlotSettings.TabIndex = 18;
             groupBoxPlotSettings.TabStop = false;
-            groupBoxPlotSettings.Text = "Plot Settings";
+            groupBoxPlotSettings.Text = "Настройки графика:";
             // 
             // buttonStickToZero
             // 
-            buttonStickToZero.Location = new Point(6, 98);
+            buttonStickToZero.Location = new Point(6, 99);
             buttonStickToZero.Name = "buttonStickToZero";
-            buttonStickToZero.Size = new Size(91, 22);
+            buttonStickToZero.Size = new Size(212, 22);
             buttonStickToZero.TabIndex = 3;
-            buttonStickToZero.Text = "Stick to zero";
+            buttonStickToZero.Text = "Привязать шкалы к нулю";
             buttonStickToZero.UseVisualStyleBackColor = true;
             // 
             // buttonResetScale
             // 
-            buttonResetScale.Location = new Point(6, 70);
+            buttonResetScale.Location = new Point(6, 71);
             buttonResetScale.Name = "buttonResetScale";
-            buttonResetScale.Size = new Size(91, 22);
+            buttonResetScale.Size = new Size(212, 22);
             buttonResetScale.TabIndex = 2;
-            buttonResetScale.Text = "Reset scale";
+            buttonResetScale.Text = "Сбросить шкалы";
             buttonResetScale.UseVisualStyleBackColor = true;
             // 
             // checkBoxLogScale
@@ -180,9 +180,9 @@
             checkBoxLogScale.AutoSize = true;
             checkBoxLogScale.Location = new Point(6, 46);
             checkBoxLogScale.Name = "checkBoxLogScale";
-            checkBoxLogScale.Size = new Size(76, 19);
+            checkBoxLogScale.Size = new Size(189, 19);
             checkBoxLogScale.TabIndex = 1;
-            checkBoxLogScale.Text = "Log Scale";
+            checkBoxLogScale.Text = "Логарифмичиеская ордината";
             checkBoxLogScale.UseVisualStyleBackColor = true;
             // 
             // checkBoxInvertData
@@ -190,9 +190,9 @@
             checkBoxInvertData.AutoSize = true;
             checkBoxInvertData.Location = new Point(6, 22);
             checkBoxInvertData.Name = "checkBoxInvertData";
-            checkBoxInvertData.Size = new Size(83, 19);
+            checkBoxInvertData.Size = new Size(129, 19);
             checkBoxInvertData.TabIndex = 0;
-            checkBoxInvertData.Text = "Invert Data";
+            checkBoxInvertData.Text = "Инверсия графика";
             checkBoxInvertData.UseVisualStyleBackColor = true;
             // 
             // groupBoxDeviceInfo
@@ -203,19 +203,19 @@
             groupBoxDeviceInfo.Controls.Add(labelComPort);
             groupBoxDeviceInfo.Location = new Point(6, 12);
             groupBoxDeviceInfo.Name = "groupBoxDeviceInfo";
-            groupBoxDeviceInfo.Size = new Size(149, 73);
+            groupBoxDeviceInfo.Size = new Size(225, 73);
             groupBoxDeviceInfo.TabIndex = 19;
             groupBoxDeviceInfo.TabStop = false;
-            groupBoxDeviceInfo.Text = "Current Device:";
+            groupBoxDeviceInfo.Text = "Текущее устройство:";
             // 
             // btnDisconnect
             // 
             btnDisconnect.Font = new Font("Segoe UI", 9F);
-            btnDisconnect.Location = new Point(74, 44);
+            btnDisconnect.Location = new Point(115, 44);
             btnDisconnect.Name = "btnDisconnect";
-            btnDisconnect.Size = new Size(69, 23);
+            btnDisconnect.Size = new Size(103, 23);
             btnDisconnect.TabIndex = 14;
-            btnDisconnect.Text = "Drop";
+            btnDisconnect.Text = "Отключиться";
             btnDisconnect.UseVisualStyleBackColor = true;
             btnDisconnect.Click += btnDisconnect_Click;
             // 
@@ -223,9 +223,9 @@
             // 
             btnConnect.Location = new Point(6, 44);
             btnConnect.Name = "btnConnect";
-            btnConnect.Size = new Size(65, 23);
+            btnConnect.Size = new Size(103, 23);
             btnConnect.TabIndex = 13;
-            btnConnect.Text = "Connect";
+            btnConnect.Text = "Подключиться";
             btnConnect.UseVisualStyleBackColor = true;
             btnConnect.Click += btnConnect_Click;
             // 
@@ -233,7 +233,7 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1218, 711);
+            ClientSize = new Size(1296, 711);
             Controls.Add(groupBoxDeviceInfo);
             Controls.Add(groupBoxPlotSettings);
             Controls.Add(groupBoxSignalAnalize);
@@ -245,7 +245,7 @@
             Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
             Name = "MainForm";
-            Text = "Spectrum Visualizer";
+            Text = "Визуализатор спектра";
             Load += Form1_Load;
             groupBoxSignalAnalize.ResumeLayout(false);
             groupBoxSignalAnalize.PerformLayout();
